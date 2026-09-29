@@ -13,6 +13,8 @@ const LAND = '#2a2650'
 const homePadding = () =>
   innerWidth < 760 ? { top: 130, bottom: 150, left: 12, right: 12 } : { top: 90, bottom: 60, left: 480, right: 60 }
 
+export type Focus = { to: 'india' | [number, number] } | null
+
 const aqiColor = [
   'step',
   ['coalesce', ['feature-state', 'aqi'], -1],
@@ -150,9 +152,10 @@ type Props = {
   panelOpen: boolean
   trace: District | null
   highlight: string[]
+  focus?: Focus
 }
 
-export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight }: Props) {
+export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight, focus = null }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const tip = useRef<HTMLDivElement>(null)
@@ -251,6 +254,21 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     if (selected) map.flyTo({ center: selected.c, zoom: selected.s === 'Delhi' ? 8.6 : selected.k === 'ncr' ? 7.6 : 6.8, padding, duration: 1600, essential: true })
     else map.fitBounds(INDIA, { padding: homePadding(), duration: 1200 })
   }, [selected, ready, panelOpen, world])
+
+  // briefing camera: whole India, or fly to a point
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !focus) return
+    if (focus.to === 'india') return void map.fitBounds(INDIA, { padding: homePadding(), duration: 1200 })
+    const mobile = innerWidth < 760
+    map.flyTo({
+      center: focus.to,
+      zoom: 6.4,
+      padding: mobile ? { top: 90, bottom: Math.round(innerHeight * 0.45), left: 20, right: 20 } : { top: 90, bottom: 240, left: 40, right: 40 },
+      duration: 1600,
+      essential: true,
+    })
+  }, [focus, ready])
 
   // districts the General talked about: outline them and bring them into view
   useEffect(() => {
