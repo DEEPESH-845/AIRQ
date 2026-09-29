@@ -71,11 +71,17 @@ export default function App() {
     setFocus(home ? { to: 'india' } : null)
     act(markIntroSeen)
   }
+  // choosing a district any way (map, search, rankings) ends the briefing: they have taken command
+  const select = (id: string | null) => {
+    setSelectedId(id)
+    if (id && intro) endIntro(false)
+  }
   useEffect(() => setTracing(false), [selectedId])
   const goMission = (id: MissionId) => {
     if (!world) return
     if (id === 'general') return setSide('general')
     setSelectedId((cur) => cur ?? defaultDistrict(world).id)
+    if (intro) endIntro(false)
     const m = MISSIONS.find((x) => x.id === id)
     if (m?.tab) {
       setTab(m.tab)
@@ -97,14 +103,17 @@ export default function App() {
 
   return (
     <main className="app">
-      <AirqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : introTrace} highlight={highlight} focus={focus} />
-      <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')} onHelp={() => setIntro(true)}>
+      <AirqMap world={world} selected={selected} onSelect={select} panelOpen={!!selected} trace={tracing ? selected : introTrace} highlight={highlight} focus={focus} />
+      <TopBar world={world} onSelect={select} onGeneral={() => setSide('general')} onHelp={() => {
+        setSelectedId(null)
+        setIntro(true)
+      }}>
         <Hud onMission={goMission} />
       </TopBar>
       <Boundary key={side}>
-      {side === 'rankings' && <Rankings world={world} onSelect={setSelectedId} onClose={() => setSide('readout')} />}
+      {side === 'rankings' && <Rankings world={world} onSelect={select} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
-      {side === 'readout' && !intro && <NationalReadout world={world} onSelect={setSelectedId} onRankings={() => setSide('rankings')} />}
+      {side === 'readout' && !intro && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} />}
       </Boundary>
       {intro && (
         <Intro

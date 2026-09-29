@@ -24,20 +24,27 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
   }, [step, story, onScene])
 
   useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && onDone()
+    // Escape skips the briefing, except while typing (the search box uses Escape to clear itself)
+    const onKey = (e: globalThis.KeyboardEvent) =>
+      e.key === 'Escape' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) && onDone()
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
   }, [onDone])
 
+  // a slow location answer must not act after the card has closed
+  const alive = useRef(true)
+  useEffect(() => () => void (alive.current = false), [])
   const locate = () => {
     if (!('geolocation' in navigator)) return onSearch()
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (!alive.current) return
         setLocating(false)
         setNear(nearestDistrict(world.districts, pos.coords.longitude, pos.coords.latitude))
       },
       () => {
+        if (!alive.current) return
         setLocating(false)
         onSearch()
       },
