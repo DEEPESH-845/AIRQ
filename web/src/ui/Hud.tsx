@@ -28,6 +28,7 @@ export function Hud({ onMission }: { onMission: (id: MissionId) => void }) {
     <div className="hud">
       <div
         className="hud-rank"
+        role="group"
         tabIndex={0}
         aria-label={`Rank ${r.name}, ${p.xp} XP${r.next ? `, ${r.next.xp - p.xp} XP to ${r.next.name}` : ''}`}
       >

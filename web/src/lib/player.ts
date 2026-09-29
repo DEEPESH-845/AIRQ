@@ -6,7 +6,7 @@ export type Tab = 'orders' | 'battle' | 'play'
 
 export const MISSIONS: { id: MissionId; label: string; xp: number; tab: Tab | null; optional?: true }[] = [
   { id: 'command', label: 'Take command of a district', xp: 10, tab: null },
-  { id: 'orders', label: "Read today's orders", xp: 10, tab: 'orders' },
+  { id: 'orders', label: "Tailor today's orders", xp: 10, tab: 'orders' },
   { id: 'trace', label: 'Trace the air', xp: 20, tab: 'battle' },
   { id: 'defend', label: 'Deploy defenses', xp: 30, tab: 'play' },
   { id: 'call', label: 'Call tomorrow', xp: 20, tab: 'play' },
