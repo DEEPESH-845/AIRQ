@@ -75,8 +75,9 @@ export default function App() {
   return (
     <main className="app">
       <AirqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} highlight={highlight} />
-      <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')} />
-      <Hud onMission={goMission} />
+      <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')}>
+        <Hud onMission={goMission} />
+      </TopBar>
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={setSelectedId} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}

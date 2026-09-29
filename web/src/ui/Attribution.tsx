@@ -52,8 +52,8 @@ export function Attribution({ d, onTrace }: { d: District; onTrace: () => void }
         <p className="fine">No satellite fires sat on this air's path in the last 36 hours.</p>
       )}
       <p className="fine">
-        Model estimate ({d.conf} confidence) from wind back-trajectories, NASA FIRMS fires and regional emission profiles, calibrated
-        against IITM's Decision Support System for Delhi.
+        Model estimate ({d.conf} confidence) from wind back-trajectories, NASA FIRMS fires and regional emission profiles, tuned to
+        IITM's daily Delhi stubble estimate. Not a measurement.
       </p>
     </section>
   )

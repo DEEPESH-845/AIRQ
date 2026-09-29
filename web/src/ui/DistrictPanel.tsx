@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { District } from '../lib/world'
-import { catOf } from '../lib/naqi'
+import { CATS, catIndex, catOf } from '../lib/naqi'
 import { PERSONAS, adviceFor, loadPersona, savePersona, type Persona } from '../lib/advice'
 import { ForecastChart } from './ForecastChart'
 import { Attribution } from './Attribution'
@@ -57,6 +57,25 @@ export function DistrictPanel({ d, generatedAt, onClose, onTrace, onHighlight }:
           {advice.grap && <span className="grap">{advice.grap} applies in Delhi-NCR at this level</span>}
         </div>
       </div>
+      <div
+        className="health"
+        role="meter"
+        aria-label="Air health"
+        aria-valuemin={0}
+        aria-valuemax={CATS.length}
+        aria-valuenow={CATS.length - catIndex(d.aqi)}
+        aria-valuetext={`${CATS.length - catIndex(d.aqi)} of ${CATS.length}, ${d.cat}`}
+      >
+        <span>Air health</span>
+        <span className="health-bar">
+          {CATS.map((c, i) => (
+            <i key={c.name} data-on={i < CATS.length - catIndex(d.aqi)} />
+          ))}
+        </span>
+      </div>
+      <p className="order">
+        <b>{advice.verdict}</b> <small>· Modelled, not measured</small>
+      </p>
       <p className="fine">
         PM2.5 {d.pm25} µg/m³ and PM10 {d.pm10} µg/m³, 24-hour average. Estimated from Copernicus CAMS at {fmtHour(generatedAt)} IST.
       </p>

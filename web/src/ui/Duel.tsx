@@ -7,7 +7,7 @@ import { act, completeMission } from '../lib/player'
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
-/** Call tomorrow's AQI band against AIRQ's forecast. Settled by the next day's data. */
+/** Call tomorrow's AQI band against the AIRQ forecast (CAMS). Settled by the next day's data. */
 export function Duel({ d, generatedAt }: { d: District; generatedAt: string }) {
   const [call, setCall] = useState<Call | undefined>(() => openCall(d.id))
   const cur = catIndex(d.aqi)
@@ -18,13 +18,13 @@ export function Duel({ d, generatedAt }: { d: District; generatedAt: string }) {
       <h2 id="duel-h">Call tomorrow</h2>
       {call ? (
         <p className="lede">
-          You called <b style={{ color: CATS[call.band].color }}>{CATS[call.band].name}</b>. AIRQ's forecast says{' '}
+          You called <b style={{ color: CATS[call.band].color }}>{CATS[call.band].name}</b>. The AIRQ forecast (CAMS) says{' '}
           <b style={{ color: CATS[call.ai].color }}>{CATS[call.ai].name}</b>. It settles {when(call.resolveAt)}: 50 XP if you beat
           the forecast, 20 if you both get it right.
         </p>
       ) : (
         <>
-          <p className="lede">What will the air be here this time tomorrow? Beat AIRQ's forecast to score.</p>
+          <p className="lede">What will the air be here this time tomorrow? Beat the AIRQ forecast (CAMS) to score.</p>
           <div className="duel-opts">
             {options.map((i) => (
               <button

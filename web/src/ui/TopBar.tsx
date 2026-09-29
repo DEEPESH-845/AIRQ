@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import type { World } from '../lib/world'
 import { istTime } from '../lib/world'
 import { catOf } from '../lib/naqi'
 
-export function TopBar({ world, onSelect, onGeneral }: { world: World; onSelect: (id: string) => void; onGeneral: () => void }) {
+export function TopBar({ world, onSelect, onGeneral, children }: { world: World; onSelect: (id: string) => void; onGeneral: () => void; children?: ReactNode }) {
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
@@ -32,6 +32,10 @@ export function TopBar({ world, onSelect, onGeneral }: { world: World; onSelect:
           <span className="pulse" aria-hidden="true" />
           {stale ? 'Some feeds delayed' : 'Live'}, updated {istTime(world.generatedAt)} IST
         </span>
+        <small className="honesty">
+          <span className="long">Modelled estimates from Copernicus CAMS, updated every 4 h. Not monitor readings.</span>
+          <span className="short">Modelled CAMS estimates, not monitor readings.</span>
+        </small>
       </div>
       <div className="top-actions">
       <button className="general-btn" onClick={onGeneral}>
@@ -40,6 +44,7 @@ export function TopBar({ world, onSelect, onGeneral }: { world: World; onSelect:
       <div className="search" role="combobox" aria-expanded={matches.length > 0} aria-haspopup="listbox">
         <input
           ref={input}
+          id="district-search"
           value={q}
           onChange={(e) => {
             setQ(e.target.value)
@@ -79,6 +84,7 @@ export function TopBar({ world, onSelect, onGeneral }: { world: World; onSelect:
         )}
       </div>
       </div>
+      {children}
     </header>
   )
 }
