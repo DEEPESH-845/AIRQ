@@ -1,0 +1,106 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { District, World } from '../lib/world'
+import type { Focus } from '../map/AirqMap'
+import { defaultDistrict, nearestDistrict, pickStory, poorPlus } from '../lib/story'
+import { SOURCES } from './Attribution'
+
+type Scene = { focus: Focus; trace: District | null }
+
+/** First-visit briefing: three cards over the live map. Non-blocking, skippable, replayable from "?". */
+export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: World; onScene: (s: Scene) => void; onPick: (id: string) => void; onSearch: () => void; onDone: () => void }) {
+  const [step, setStep] = useState(0)
+  const [near, setNear] = useState<District | null>(null)
+  const [locating, setLocating] = useState(false)
+  const card = useRef<HTMLElement>(null)
+  const story = useMemo(() => pickStory(world), [world])
+  const n = poorPlus(world.districts)
+  const top = SOURCES.map((s) => ({ ...s, v: story.d.att[s.key] })).sort((a, b) => b.v - a.v)
+  const target = defaultDistrict(world)
+
+  useEffect(() => {
+    if (step === 1) onScene(story.kind === 'fire' ? { focus: null, trace: story.d } : { focus: { to: story.d.c }, trace: null })
+    else onScene({ focus: { to: 'india' }, trace: null })
+    card.current?.focus()
+  }, [step, story, onScene])
+
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && onDone()
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [onDone])
+
+  const locate = () => {
+    if (!('geolocation' in navigator)) return onSearch()
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        setNear(nearestDistrict(world.districts, pos.coords.longitude, pos.coords.latitude))
+      },
+      () => {
+        setLocating(false)
+        onSearch()
+      },
+      { timeout: 8000, maximumAge: 600000 },
+    )
+  }
+
+  const cards = [
+    {
+      title: "India's air, right now.",
+      body: n
+        ? `${n} of ${world.districts.length} districts are breathing Poor air or worse. Colours show each district's air today.`
+        : "India's air is mostly clean today. Here's where it's worst.",
+    },
+    story.kind === 'fire'
+      ? { title: 'Air travels.', body: `Air reaching ${story.d.n} in the last 36 hours came from here: the line is its path, the rings are fires on the way.` }
+      : { title: 'Every district has its own mix.', body: `${story.d.n} today: mostly ${top[0].label.toLowerCase()} (${Math.round(top[0].v * 100)}%).` },
+    { title: 'Take command.', body: "Pick a district to defend. You'll get today's orders, where its air comes from, and ways to play." },
+  ]
+  const c = cards[step]
+
+  return (
+    <section className="intro" aria-label="Briefing" tabIndex={-1} ref={card}>
+      <div className="intro-steps" aria-hidden="true">
+        {cards.map((_, i) => (
+          <i key={i} data-on={i <= step} />
+        ))}
+      </div>
+      <h2>{c.title}</h2>
+      <p aria-live="polite">{c.body}</p>
+      {step === 1 && story.kind === 'mix' && (
+        <div className="att-bar" role="img" aria-label={top.map((r) => `${r.label} ${Math.round(r.v * 100)}%`).join(', ')}>
+          {top.map((r) => (
+            <span key={r.key} style={{ flexGrow: r.v, background: r.color }} />
+          ))}
+        </div>
+      )}
+      {step < 2 ? (
+        <div className="intro-actions">
+          <button onClick={onDone}>Skip</button>
+          <button className="primary" onClick={() => setStep(step + 1)}>
+            Next
+          </button>
+        </div>
+      ) : near ? (
+        <div className="intro-actions">
+          <span>Nearest district: <b>{near.n}</b></span>
+          <button onClick={onSearch}>Not yours? Search</button>
+          <button className="primary" onClick={() => onPick(near.id)}>
+            Take command
+          </button>
+        </div>
+      ) : (
+        <div className="intro-actions">
+          <button onClick={locate} disabled={locating}>
+            {locating ? 'Finding you…' : 'Use my location'}
+          </button>
+          <button onClick={onSearch}>Search</button>
+          <button className="primary" onClick={() => onPick(target.id)}>
+            Take {target.n}
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}

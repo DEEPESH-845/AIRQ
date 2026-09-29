@@ -3,7 +3,7 @@ import type { World } from '../lib/world'
 import { istTime } from '../lib/world'
 import { catOf } from '../lib/naqi'
 
-export function TopBar({ world, onSelect, onGeneral, children }: { world: World; onSelect: (id: string) => void; onGeneral: () => void; children?: ReactNode }) {
+export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world: World; onSelect: (id: string) => void; onGeneral: () => void; onHelp: () => void; children?: ReactNode }) {
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
@@ -38,6 +38,9 @@ export function TopBar({ world, onSelect, onGeneral, children }: { world: World;
         </small>
       </div>
       <div className="top-actions">
+      <button className="help-btn" onClick={onHelp} aria-label="How AIRQ works">
+        ?
+      </button>
       <button className="general-btn" onClick={onGeneral}>
         Ask the General
       </button>

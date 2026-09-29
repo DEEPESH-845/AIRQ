@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
-import { loadWorld, type World } from './lib/world'
-import { AirqMap } from './map/AirqMap'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { loadWorld, type District, type World } from './lib/world'
+import { AirqMap, type Focus } from './map/AirqMap'
+import { Intro } from './ui/Intro'
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
@@ -9,7 +10,7 @@ import { GeneralChat } from './ui/GeneralChat'
 import { Boundary } from './ui/Boundary'
 import { settle, bandName, type Result } from './lib/game'
 import { Hud } from './ui/Hud'
-import { MISSIONS, act, addPoints, checkIn, completeMission, type MissionId, type Tab } from './lib/player'
+import { MISSIONS, act, addPoints, checkIn, completeMission, getPlayer, markIntroSeen, shouldShowIntro, type MissionId, type Tab } from './lib/player'
 import { defaultDistrict } from './lib/story'
 
 export default function App() {
@@ -55,6 +56,21 @@ export default function App() {
   const [highlight, setHighlight] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('orders')
   const [focusKey, setFocusKey] = useState(0)
+  const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search))
+  const [focus, setFocus] = useState<Focus>(null)
+  const [introTrace, setIntroTrace] = useState<District | null>(null)
+  // stable, so Intro's scene effect runs only when its step changes
+  const onScene = useCallback((s: { focus: Focus; trace: District | null }) => {
+    setFocus(s.focus)
+    setIntroTrace(s.trace)
+  }, [])
+  // home: fly back to all of India; false when a district is being selected (its own camera move must win)
+  const endIntro = (home = true) => {
+    setIntro(false)
+    setIntroTrace(null)
+    setFocus(home ? { to: 'india' } : null)
+    act(markIntroSeen)
+  }
   useEffect(() => setTracing(false), [selectedId])
   const goMission = (id: MissionId) => {
     if (!world) return
@@ -81,15 +97,30 @@ export default function App() {
 
   return (
     <main className="app">
-      <AirqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} highlight={highlight} />
-      <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')}>
+      <AirqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : introTrace} highlight={highlight} focus={focus} />
+      <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')} onHelp={() => setIntro(true)}>
         <Hud onMission={goMission} />
       </TopBar>
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={setSelectedId} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
-      {side === 'readout' && <NationalReadout world={world} onSelect={setSelectedId} onRankings={() => setSide('rankings')} />}
+      {side === 'readout' && !intro && <NationalReadout world={world} onSelect={setSelectedId} onRankings={() => setSide('rankings')} />}
       </Boundary>
+      {intro && (
+        <Intro
+          world={world}
+          onScene={onScene}
+          onPick={(id) => {
+            endIntro(false)
+            setSelectedId(id)
+          }}
+          onSearch={() => {
+            endIntro()
+            document.getElementById('district-search')?.focus()
+          }}
+          onDone={() => endIntro()}
+        />
+      )}
       {tracing && selected && (
         <div className="trace-banner" role="status">
           <span>
