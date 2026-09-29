@@ -8,3 +8,5 @@ __pycache__/
 .aws-sam/
 web/test-results/
 build/
+.vapid.json
+infra/push/node_modules/

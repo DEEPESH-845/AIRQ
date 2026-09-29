@@ -29,6 +29,8 @@ export type District = {
   conf: 'low' | 'medium'
   traj: [number, number][]
   clusters: Cluster[]
+  /** CAMS forecasts a coarse-dust event (PM10 > 400 and > 3x PM2.5) in the next 24 h */
+  dustAhead: boolean
   vi: number
   viMin: number
   blhMin: number
@@ -51,6 +53,7 @@ export type World = {
   districts: District[]
   fires: [lon: number, lat: number, frp: number, hoursAgo: number][]
   wind: Wind
+  raids: { id: string; n: string; s: string; aqi: number; kind: 'now' | 'incoming'; etaH: number; dust: boolean }[]
 }
 
 export async function loadWorld(): Promise<World> {

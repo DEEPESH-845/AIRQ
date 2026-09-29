@@ -6,11 +6,16 @@ import { ForecastChart } from './ForecastChart'
 import { Attribution } from './Attribution'
 import { Defend } from './Defend'
 import { Duel } from './Duel'
+import { AlertToggle } from './AlertToggle'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
 
+const istDay = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })
+
 function lidText(d: District) {
+  if (d.dustAhead)
+    return `A dust storm is forecast within 24 hours. Coarse dust drives the AQI up fast; keep windows shut and wear an N95 outdoors.`
   if (d.blhMin < 200)
     return `Tonight the mixing layer collapses to about ${d.blhMin} m. Smog gets trapped near the ground, so mornings will be worst.`
   if (d.viMin < 6000) return `Ventilation drops below 6,000 m²/s in the next 24 hours, so pollution will linger.`
@@ -66,13 +71,14 @@ export function DistrictPanel({ d, generatedAt, onClose, onTrace }: { d: Distric
         </p>
         {d.best && (
           <p className="best">
-            <span>Cleanest window today</span>
+            <span>Cleanest window {istDay(d.best.start) === istDay(generatedAt) ? 'today' : 'tomorrow'}</span>
             <b>
               {fmtHour(d.best.start)} to {fmtHour(d.best.start, 2)}
             </b>
             <small>PM2.5 around {d.best.pm25} µg/m³</small>
           </p>
         )}
+        <AlertToggle district={d.id} name={d.n} />
       </section>
 
       <section className="block" aria-labelledby="fc-h">

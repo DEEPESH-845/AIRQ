@@ -8,7 +8,7 @@ const page = await browser.newPage(mobile ? { viewport: { width: 390, height: 84
 const errors = []
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
-await page.goto('http://localhost:5173' + path, { waitUntil: 'networkidle' })
+await page.goto((process.env.BASE ?? 'http://localhost:5173') + path, { waitUntil: 'networkidle' })
 await page.waitForTimeout(3500)
 for (const f of flags.filter((f) => f.startsWith('--click='))) {
   await page.click(f.slice(8))

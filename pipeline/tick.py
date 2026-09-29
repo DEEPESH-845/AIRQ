@@ -47,15 +47,16 @@ def category(aqi):
 
 
 # ---------------------------------------------------------------- fetch helpers
-def get(url, tries=3):
+def get(url, tries=4):
     for i in range(tries):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'arq-tick/1.0'}), timeout=90) as r:
                 return r.read()
-        except Exception:
+        except Exception as e:
             if i == tries - 1:
                 raise
-            time.sleep(3 * (i + 1))
+            # 429 = Open-Meteo per-minute budget; wait for the window to roll over
+            time.sleep(35 if getattr(e, 'code', None) == 429 else 3 * (i + 1))
 
 
 def s3():
@@ -87,9 +88,14 @@ def cached(name, fetch, sources, label, url):
     return data
 
 
+PACE_S = float(os.environ.get('ARQ_PACE_S', 12))  # 100 locations per 12 s keeps us under 600 calls/min
+
+
 def open_meteo(base, lats, lons, params, chunk=100):
     out = []
     for i in range(0, len(lats), chunk):
+        if i:
+            time.sleep(PACE_S)
         q = dict(params, latitude=','.join(f'{x:.3f}' for x in lats[i:i + chunk]),
                  longitude=','.join(f'{x:.3f}' for x in lons[i:i + chunk]), timezone='GMT')
         res = json.loads(get(base + '?' + urllib.parse.urlencode(q)))

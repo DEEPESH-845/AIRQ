@@ -11,26 +11,35 @@ rm -rf build/tick && mkdir -p build/tick/geo
 cp pipeline/tick.py build/tick/
 cp web/public/geo/districts.geojson web/public/geo/plants.geojson build/tick/geo/
 
+echo "== staging push Lambda"
+(cd infra/push && npm i --omit=dev --silent)
+VAPID_PUBLIC=$(python3 -c "import json;print(json.load(open('.vapid.json'))['publicKey'])")
+VAPID_PRIVATE=$(python3 -c "import json;print(json.load(open('.vapid.json'))['privateKey'])")
+
 echo "== deploying stack $STACK ($REGION)"
 sam deploy --template-file infra/template.yaml --stack-name $STACK --region "$REGION" \
   --capabilities CAPABILITY_IAM --resolve-s3 --no-fail-on-empty-changeset --no-confirm-changeset \
-  --parameter-overrides "AlertEmail=${1:-}"
+  --parameter-overrides "AlertEmail=${1:-}" "VapidPublicKey=$VAPID_PUBLIC" "VapidPrivateKey=$VAPID_PRIVATE"
 
 out() { aws cloudformation describe-stacks --stack-name $STACK --region "$REGION" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
 BUCKET=$(out Bucket); DIST=$(out DistributionId); URL=$(out SiteUrl); SM=$(out WorldTickArn)
 
 echo "== building web app"
-(cd web && npx vite build >/dev/null)
+(cd web && VITE_VAPID_PUBLIC_KEY="$VAPID_PUBLIC" npx vite build >/dev/null)
 
 echo "== uploading to s3://$BUCKET"
 aws s3 sync web/dist "s3://$BUCKET" --delete --exclude "data/*" --exclude "archive/*" --exclude "cache/*" \
-  --exclude "index.html" --cache-control "public, max-age=31536000, immutable" >/dev/null
-aws s3 cp web/dist/index.html "s3://$BUCKET/index.html" --cache-control "no-cache" >/dev/null
+  --exclude "index.html" --exclude "sw.js" --cache-control "public, max-age=31536000, immutable" >/dev/null
+for f in index.html sw.js; do aws s3 cp "web/dist/$f" "s3://$BUCKET/$f" --cache-control "no-cache" >/dev/null; done
 aws s3 sync web/dist/geo "s3://$BUCKET/geo" --cache-control "public, max-age=86400" >/dev/null
 
 echo "== running first world tick"
-aws stepfunctions start-sync-execution --state-machine-arn "$SM" --region "$REGION" \
-  --query '{status:status,output:output}' --output json | head -c 600; echo
+EXEC=$(aws stepfunctions start-execution --state-machine-arn "$SM" --region "$REGION" --query executionArn --output text)
+for _ in $(seq 60); do
+  S=$(aws stepfunctions describe-execution --execution-arn "$EXEC" --region "$REGION" --query status --output text)
+  [ "$S" != RUNNING ] && break; sleep 10
+done
+echo "tick: $S"
 
-aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/index.html" "/data/*" >/dev/null
+aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/index.html" "/sw.js" "/data/*" >/dev/null
 echo "== live at $URL"

@@ -11,6 +11,14 @@ Parameters:
     Default: ''
     Description: Optional email for budget alerts (monthly budget of $15). Leave empty to skip.
 
+  VapidPublicKey:
+    Type: String
+    Default: ''
+  VapidPrivateKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+
 Conditions:
   HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
 
@@ -81,12 +89,21 @@ Resources:
             DomainName: !GetAtt SiteBucket.RegionalDomainName
             OriginAccessControlId: !Ref SiteOAC
             S3OriginConfig: { OriginAccessIdentity: '' }
+          - Id: api
+            DomainName: !Sub ${PushApi}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig: { OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2] }
         DefaultCacheBehavior:
           TargetOriginId: site
           ViewerProtocolPolicy: redirect-to-https
           Compress: true
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
         CacheBehaviors:
+          - PathPattern: api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
           - PathPattern: data/*
             TargetOriginId: site
             ViewerProtocolPolicy: redirect-to-https
@@ -118,7 +135,7 @@ Resources:
       CodeUri: ../build/tick
       Handler: tick.handler
       MemorySize: 1024
-      Timeout: 300
+      Timeout: 900
       Environment:
         Variables:
           ARQ_BUCKET: !Ref SiteBucket
@@ -136,12 +153,12 @@ Resources:
   WorldTick:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: arq-world-tick
-      Type: EXPRESS
+      Name: arq-worldtick
+      Type: STANDARD # a paced tick takes ~3-4 min, beyond Express's 5-min cap once retries are counted
       Tracing: { Enabled: true }
       Logging:
         Level: ERROR
-        IncludeExecutionData: false
+        IncludeExecutionData: true
         Destinations:
           - CloudWatchLogsLogGroup: { LogGroupArn: !GetAtt TickLogs.Arn }
       Policies:
@@ -230,6 +247,53 @@ Resources:
       Targets:
         - Id: raid-topic
           Arn: !Ref RaidTopic
+
+  # ---------------------------------------------------------------- web push alerts
+  Subscriptions:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arq-push-subscriptions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: d, AttributeType: S }
+        - { AttributeName: e, AttributeType: S }
+      KeySchema:
+        - { AttributeName: d, KeyType: HASH }
+        - { AttributeName: e, KeyType: RANGE }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+
+  PushApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings: { ThrottlingBurstLimit: 20, ThrottlingRateLimit: 10 }
+
+  PushFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: arq-push
+      CodeUri: push/
+      Handler: index.handler
+      Runtime: nodejs22.x
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE: !Ref Subscriptions
+          VAPID_SUBJECT: mailto:deepesh.mgn@gmail.com
+          VAPID_PUBLIC: !Ref VapidPublicKey
+          VAPID_PRIVATE: !Ref VapidPrivateKey
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Subscriptions }
+      Events:
+        Subscribe:
+          Type: HttpApi
+          Properties: { ApiId: !Ref PushApi, Path: /api/subscribe, Method: POST }
+        Unsubscribe:
+          Type: HttpApi
+          Properties: { ApiId: !Ref PushApi, Path: /api/subscribe, Method: DELETE }
+        Raids:
+          Type: SNS
+          Properties: { Topic: !Ref RaidTopic }
 
   # ---------------------------------------------------------------- cost guardrail
   Budget:
