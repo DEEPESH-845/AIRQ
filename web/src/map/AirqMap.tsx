@@ -44,6 +44,7 @@ const STYLE: StyleSpecification = {
     states: { type: 'geojson', data: '/geo/states.geojson' },
     districts: { type: 'geojson', data: '/geo/districts.geojson', promoteId: 'id' },
     fires: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    raids: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     labels: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     traj: { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } },
     trajpts: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
@@ -95,6 +96,12 @@ const STYLE: StyleSpecification = {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 0.9, 8, 2.2],
         'circle-opacity': ['interpolate', ['linear'], ['get', 'age'], 0, 1, 48, 0.25],
       },
+    },
+    {
+      id: 'raids-ring',
+      type: 'circle',
+      source: 'raids',
+      paint: { 'circle-radius': 12, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': CATS[4].color, 'circle-stroke-width': 2.5 },
     },
     {
       id: 'hl-line',
@@ -224,11 +231,18 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     for (const d of world.districts) map.setFeatureState({ source: 'districts', id: d.id }, { aqi: d.aqi })
     ;(map.getSource('fires') as GeoJSONSource).setData({
       type: 'FeatureCollection',
-      features: world.fires.map(([lon, lat, frp, age]) => ({
+      features: world.fires.filter((f) => f[3] <= 24).map(([lon, lat, frp, age]) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: { frp, age },
       })),
+    })
+    ;(map.getSource('raids') as GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: world.raids.flatMap((r) => {
+        const d = byId.current.get(r.id)
+        return d ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: d.c }, properties: { id: r.id } }] : []
+      }),
     })
     ;(map.getSource('labels') as GeoJSONSource).setData({
       type: 'FeatureCollection',
@@ -239,6 +253,19 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
       })),
     })
     return startParticles(map, canvas.current!, world)
+  }, [world, ready])
+
+  // raid rings pulse (static when the user prefers reduced motion)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !world.raids.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let raf = 0
+    const frame = (t: number) => {
+      map.setPaintProperty('raids-ring', 'circle-radius', 12 + 5 * Math.sin(t / 320))
+      raf = requestAnimationFrame(frame)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
   }, [world, ready])
 
   // selection: outline + camera

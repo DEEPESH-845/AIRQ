@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { loadWorld, type District, type World } from './lib/world'
 import { AirqMap, type Focus } from './map/AirqMap'
 import { Intro } from './ui/Intro'
+import { RaidBanner } from './ui/RaidBanner'
+import { MapKey } from './ui/MapKey'
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
@@ -109,6 +111,8 @@ export default function App() {
         setIntro(true)
       }}>
         <Hud onMission={goMission} />
+        {!intro && <RaidBanner world={world} onSelect={select} />}
+        {!selected && <MapKey />}
       </TopBar>
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={select} onClose={() => setSide('readout')} />}

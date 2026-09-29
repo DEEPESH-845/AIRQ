@@ -375,3 +375,19 @@ button { font: inherit; color: inherit; }
 .reveal-pts { font: 800 24px/1 var(--display); color: var(--ember); margin: 8px 0 0 !important; }
 @keyframes reveal { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }
+
+.raid-banner { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 14px; border-radius: 999px; background: rgba(229, 56, 59, 0.92); max-width: calc(100vw - 2 * var(--gutter)); }
+.raid-go { background: none; border: 0; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; }
+.raid-x { width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.25); color: #fff; font-size: 16px; cursor: pointer; }
+.map-key { position: absolute; right: var(--gutter); bottom: 20px; z-index: 3; max-width: 300px; padding: 8px 12px; border-radius: 12px; background: rgba(20, 18, 43, 0.88); border: 1px solid var(--line); font-size: 12.5px; color: var(--haze); }
+.map-key summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.map-key ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 7px; }
+.map-key li { display: flex; align-items: center; gap: 8px; }
+.mk-bands { display: flex; gap: 2px; flex: none; }
+.mk-bands i { width: 8px; height: 12px; border-radius: 2px; }
+.mk-streak { flex: none; width: 22px; height: 2px; background: linear-gradient(90deg, transparent, #fff); }
+.mk-fire { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ember); margin: 0 7px; }
+.mk-ring { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid #e5383b; margin: 0 4px; }
+/* banner and key live inside the top bar: the banner is a row, the key hangs just below the bar */
+.topbar .raid-banner { position: static; transform: none; }
+.topbar .map-key { position: absolute; top: calc(100% - 24px); bottom: auto; right: var(--gutter); }
