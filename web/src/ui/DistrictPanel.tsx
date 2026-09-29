@@ -4,6 +4,8 @@ import { catOf } from '../lib/naqi'
 import { PERSONAS, adviceFor, loadPersona, savePersona, type Persona } from '../lib/advice'
 import { ForecastChart } from './ForecastChart'
 import { Attribution } from './Attribution'
+import { Defend } from './Defend'
+import { Duel } from './Duel'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
@@ -80,6 +82,8 @@ export function DistrictPanel({ d, generatedAt, onClose, onTrace }: { d: Distric
       </section>
 
       <Attribution d={d} onTrace={onTrace} />
+      <Defend d={d} start={generatedAt} />
+      <Duel d={d} generatedAt={generatedAt} />
     </aside>
   )
 }

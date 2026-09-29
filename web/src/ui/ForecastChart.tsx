@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { CATS, catOf } from '../lib/naqi'
 
 const W = 376
@@ -8,7 +9,8 @@ const hourLabel = (d: Date) =>
   d.toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' }).replace(' ', ' ')
 
 /** 48-hour NAQI outlook. The line takes the colour of the band it is in. */
-export function ForecastChart({ fc, start }: { fc: number[]; start: string }) {
+export function ForecastChart({ fc, start, plan }: { fc: number[]; start: string; plan?: number[] }) {
+  const uid = useId().replace(/:/g, '')
   const t0 = new Date(start).getTime()
   const peak = Math.max(...fc)
   const peakI = fc.indexOf(peak)
@@ -17,6 +19,7 @@ export function ForecastChart({ fc, start }: { fc: number[]; start: string }) {
   const y = (v: number) => PAD.t + (1 - v / top) * (H - PAD.t - PAD.b)
   const line = fc.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('')
   const area = `${line}L${x(fc.length - 1)} ${y(0)}L${x(0)} ${y(0)}Z`
+  const planLine = plan?.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('')
 
   // gradient stops at each band edge, in the chart's own y space
   const stops = CATS.flatMap((c) => {
@@ -34,17 +37,17 @@ export function ForecastChart({ fc, start }: { fc: number[]; start: string }) {
   return (
     <svg className="fc-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`AQI over the next 48 hours, peaking at ${peak}`}>
       <defs>
-        <linearGradient id="fc-grad" gradientUnits="userSpaceOnUse" x1="0" y1={PAD.t} x2="0" y2={H - PAD.b}>
+        <linearGradient id={`g${uid}`} gradientUnits="userSpaceOnUse" x1="0" y1={PAD.t} x2="0" y2={H - PAD.b}>
           {stops.map((s, i) => (
             <stop key={i} offset={s.o} stopColor={s.c} />
           ))}
         </linearGradient>
-        <linearGradient id="fc-fill" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`f${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity="0.16" />
           <stop offset="1" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
-        <mask id="fc-mask">
-          <path d={area} fill="url(#fc-fill)" />
+        <mask id={`m${uid}`}>
+          <path d={area} fill={`url(#f${uid})`} />
         </mask>
       </defs>
       {guides.map((g) => (
@@ -55,8 +58,15 @@ export function ForecastChart({ fc, start }: { fc: number[]; start: string }) {
           </text>
         </g>
       ))}
-      <rect x="0" y="0" width={W} height={H} fill="url(#fc-grad)" mask="url(#fc-mask)" />
-      <path d={line} fill="none" stroke="url(#fc-grad)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <rect x="0" y="0" width={W} height={H} fill={`url(#g${uid})`} mask={`url(#m${uid})`} />
+      <path d={line} fill="none" stroke={`url(#g${uid})`} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {planLine && <path d={planLine} className="fc-plan" />}
+      {planLine && (
+        <text x={PAD.l} y={12} className="fc-legend">
+          <tspan className="fc-legend-real">Forecast</tspan>
+          <tspan dx="12">Your plan</tspan>
+        </text>
+      )}
       <circle cx={x(0)} cy={y(fc[0])} r="4" fill={catOf(fc[0]).color} />
       <circle cx={x(peakI)} cy={y(peak)} r="4" fill="none" stroke={catOf(peak).color} strokeWidth="2" />
       <text

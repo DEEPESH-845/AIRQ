@@ -219,3 +219,39 @@ button { font: inherit; color: inherit; }
   .rankings { top: 0; left: 0; right: 0; bottom: 0; width: auto; border-radius: 0; padding-top: max(20px, env(safe-area-inset-top)); z-index: 2; }
   .readout .to-rankings { display: block; }
 }
+
+/* ---------- defend + duel */
+.fc-plan { fill: none; stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
+.fc-legend { font-size: 11px; fill: var(--ink); }
+.fc-legend-real { fill: var(--haze); }
+.def-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.def {
+  display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-height: 76px;
+  padding: 10px 12px; border-radius: var(--r-s); border: 1px solid var(--line); background: var(--sky-2);
+  text-align: left; cursor: pointer; transition: border-color 120ms, background 120ms;
+}
+.def:hover:not(:disabled) { border-color: var(--haze); }
+.def[aria-pressed='true'] { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 12%, var(--sky-2)); }
+.def:disabled { opacity: 0.4; cursor: not-allowed; }
+.def-name { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+.def-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--haze); }
+.cost { display: inline-flex; gap: 3px; }
+.cost i { width: 7px; height: 7px; border-radius: 50%; background: var(--haze); }
+.def[aria-pressed='true'] .cost i { background: var(--ink); }
+.budget { margin: 10px 0 4px; font-size: 13px; color: var(--haze); }
+.def-note { margin: 0 0 8px; color: var(--haze); }
+.def-result { margin: 8px 0 0; font-size: 14.5px; }
+.def-result b { font-weight: 700; }
+.duel-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
+.duel-opts button {
+  padding: 12px 8px; border-radius: var(--r-s); border: 1px solid var(--c); cursor: pointer;
+  background: color-mix(in srgb, var(--c) 14%, transparent); font-weight: 600; font-size: 13px;
+}
+.duel-opts button:hover { background: color-mix(in srgb, var(--c) 28%, transparent); }
+.toast {
+  position: absolute; left: 50%; bottom: var(--gutter); transform: translateX(-50%); z-index: 3;
+  max-width: min(520px, calc(100vw - 2 * var(--gutter))); padding: 14px 16px; border-radius: var(--r-m);
+  background: var(--sky-1); border: 1px solid var(--haze);
+}
+.toast p { margin: 0 0 8px; }
+.toast button { padding: 6px 14px; border-radius: 999px; border: 0; background: var(--ink); color: var(--sky-0); font-weight: 700; cursor: pointer; }

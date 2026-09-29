@@ -5,14 +5,19 @@ import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
 import { Rankings } from './ui/Rankings'
+import { settle, bandName, type Result } from './lib/game'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(() => new URLSearchParams(location.search).get('d'))
 
+  const [results, setResults] = useState<Result[]>([])
   useEffect(() => {
-    loadWorld().then(setWorld, (e) => setError(String(e.message ?? e)))
+    loadWorld().then((w) => {
+      setWorld(w)
+      setResults(settle(w.districts, w.generatedAt))
+    }, (e) => setError(String(e.message ?? e)))
   }, [])
 
   // deep link: ?d=<district id>
@@ -57,6 +62,16 @@ export default function App() {
             Smoke path into <b>{selected.n}</b> over the last 36 hours
           </span>
           <button onClick={() => setTracing(false)}>Done</button>
+        </div>
+      )}
+      {results.length > 0 && (
+        <div className="toast" role="status">
+          {results.map((r) => (
+            <p key={r.district}>
+              {r.name}: you called {bandName(r.band)}, it came in at {r.actual} ({bandName(r.actualBand)}). <b>+{r.points} points</b>
+            </p>
+          ))}
+          <button onClick={() => setResults([])}>Got it</button>
         </div>
       )}
       {selected && (
