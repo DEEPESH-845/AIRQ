@@ -95,6 +95,13 @@ const STYLE: StyleSpecification = {
       },
     },
     {
+      id: 'hl-line',
+      type: 'line',
+      source: 'districts',
+      filter: ['in', ['get', 'id'], ['literal', []]],
+      paint: { 'line-color': '#ffd27a', 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
+    },
+    {
       id: 'sel-line',
       type: 'line',
       source: 'districts',
@@ -142,9 +149,10 @@ type Props = {
   onSelect: (id: string | null) => void
   panelOpen: boolean
   trace: District | null
+  highlight: string[]
 }
 
-export function ArqMap({ world, selected, onSelect, panelOpen, trace }: Props) {
+export function ArqMap({ world, selected, onSelect, panelOpen, trace, highlight }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const tip = useRef<HTMLDivElement>(null)
@@ -243,6 +251,22 @@ export function ArqMap({ world, selected, onSelect, panelOpen, trace }: Props) {
     if (selected) map.flyTo({ center: selected.c, zoom: selected.s === 'Delhi' ? 8.6 : selected.k === 'ncr' ? 7.6 : 6.8, padding, duration: 1600, essential: true })
     else map.fitBounds(INDIA, { padding: homePadding(), duration: 1200 })
   }, [selected, ready, panelOpen, world])
+
+  // districts the General talked about: outline them and bring them into view
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    map.setFilter('hl-line', ['in', ['get', 'id'], ['literal', highlight]])
+    const pts = world.districts.filter((d) => highlight.includes(d.id))
+    if (pts.length > 1) {
+      const lons = pts.map((d) => d.c[0])
+      const lats = pts.map((d) => d.c[1])
+      map.fitBounds([[Math.min(...lons) - 0.6, Math.min(...lats) - 0.6], [Math.max(...lons) + 0.6, Math.max(...lats) + 0.6]], {
+        padding: innerWidth < 760 ? { top: 80, bottom: innerHeight * 0.5, left: 20, right: 20 } : { top: 100, bottom: 80, left: 460, right: panelOpen ? 480 : 60 },
+        duration: 1200, maxZoom: 7.5,
+      })
+    }
+  }, [highlight, ready, world, panelOpen])
 
   // Trace to Source: draw the 36 h back-trajectory from the fire cluster into the district
   useEffect(() => {

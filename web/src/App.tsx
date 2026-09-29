@@ -5,6 +5,7 @@ import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
 import { Rankings } from './ui/Rankings'
+import { GeneralChat } from './ui/GeneralChat'
 import { settle, bandName, type Result } from './lib/game'
 
 export default function App() {
@@ -36,7 +37,8 @@ export default function App() {
 
   const selected = useMemo(() => world?.districts.find((d) => d.id === selectedId) ?? null, [world, selectedId])
   const [tracing, setTracing] = useState(false)
-  const [ranking, setRanking] = useState(false)
+  const [side, setSide] = useState<'readout' | 'rankings' | 'general'>('readout')
+  const [highlight, setHighlight] = useState<string[]>([])
   useEffect(() => setTracing(false), [selectedId])
 
   if (error)
@@ -49,13 +51,11 @@ export default function App() {
 
   return (
     <main className="app">
-      <ArqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} />
-      <TopBar world={world} onSelect={setSelectedId} />
-      {ranking ? (
-        <Rankings world={world} onSelect={setSelectedId} onClose={() => setRanking(false)} />
-      ) : (
-        <NationalReadout world={world} onSelect={setSelectedId} onRankings={() => setRanking(true)} />
-      )}
+      <ArqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} highlight={highlight} />
+      <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')} />
+      {side === 'rankings' && <Rankings world={world} onSelect={setSelectedId} onClose={() => setSide('readout')} />}
+      {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
+      {side === 'readout' && <NationalReadout world={world} onSelect={setSelectedId} onRankings={() => setSide('rankings')} />}
       {tracing && selected && (
         <div className="trace-banner" role="status">
           <span>
@@ -75,7 +75,7 @@ export default function App() {
         </div>
       )}
       {selected && (
-        <DistrictPanel key={selected.id} d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={() => setTracing(true)} />
+        <DistrictPanel key={selected.id} d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={() => setTracing(true)} onHighlight={setHighlight} />
       )}
     </main>
   )

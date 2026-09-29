@@ -3,7 +3,7 @@ import type { World } from '../lib/world'
 import { istTime } from '../lib/world'
 import { catOf } from '../lib/naqi'
 
-export function TopBar({ world, onSelect }: { world: World; onSelect: (id: string) => void }) {
+export function TopBar({ world, onSelect, onGeneral }: { world: World; onSelect: (id: string) => void; onGeneral: () => void }) {
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
@@ -33,6 +33,10 @@ export function TopBar({ world, onSelect }: { world: World; onSelect: (id: strin
           {stale ? 'Some feeds delayed' : 'Live'}, updated {istTime(world.generatedAt)} IST
         </span>
       </div>
+      <div className="top-actions">
+      <button className="general-btn" onClick={onGeneral}>
+        Ask the General
+      </button>
       <div className="search" role="combobox" aria-expanded={matches.length > 0} aria-haspopup="listbox">
         <input
           ref={input}
@@ -73,6 +77,7 @@ export function TopBar({ world, onSelect }: { world: World; onSelect: (id: strin
             ))}
           </ul>
         )}
+      </div>
       </div>
     </header>
   )

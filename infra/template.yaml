@@ -295,6 +295,44 @@ Resources:
           Type: SNS
           Properties: { Topic: !Ref RaidTopic }
 
+  # ---------------------------------------------------------------- the General (Strands on Bedrock)
+  GeneralQuota:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arq-general-quota
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: k, AttributeType: S }]
+      KeySchema: [{ AttributeName: k, KeyType: HASH }]
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+
+  GeneralFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: arq-general
+      CodeUri: ../build/general
+      Handler: app.handler
+      MemorySize: 1024
+      Timeout: 29 # API Gateway HTTP APIs cap integrations at 30 s
+      Environment:
+        Variables:
+          ARQ_BUCKET: !Ref SiteBucket
+          QUOTA_TABLE: !Ref GeneralQuota
+          MODEL_ID: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+          DAILY_QUESTIONS: '10'
+      Policies:
+        - S3CrudPolicy: { BucketName: !Ref SiteBucket }
+        - DynamoDBCrudPolicy: { TableName: !Ref GeneralQuota }
+        - Statement:
+            - Effect: Allow
+              Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+              Resource:
+                - arn:aws:bedrock:*::foundation-model/anthropic.*
+                - !Sub arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*
+      Events:
+        Ask:
+          Type: HttpApi
+          Properties: { ApiId: !Ref PushApi, Path: /api/general, Method: POST }
+
   # ---------------------------------------------------------------- cost guardrail
   Budget:
     Type: AWS::Budgets::Budget

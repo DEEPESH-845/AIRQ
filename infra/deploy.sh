@@ -11,6 +11,12 @@ rm -rf build/tick && mkdir -p build/tick/geo
 cp pipeline/tick.py build/tick/
 cp web/public/geo/districts.geojson web/public/geo/plants.geojson build/tick/geo/
 
+echo "== staging General Lambda (Strands, linux/arm64 wheels)"
+rm -rf build/general && mkdir -p build/general
+cp infra/general/app.py web/src/lib/advice-matrix.json build/general/
+python3 -m pip install -q --target build/general --platform manylinux2014_aarch64 --implementation cp \
+  --python-version 3.13 --only-binary=:all: --upgrade strands-agents >/dev/null
+
 echo "== staging push Lambda"
 (cd infra/push && npm i --omit=dev --silent)
 VAPID_PUBLIC=$(python3 -c "import json;print(json.load(open('.vapid.json'))['publicKey'])")

@@ -59,6 +59,16 @@
       "Effect": "Allow",
       "Action": "iam:CreateServiceLinkedRole",
       "Resource": "*"
+    },
+    {
+      "Sid": "BedrockModelSubscription",
+      "Effect": "Allow",
+      "Action": [
+        "aws-marketplace:ViewSubscriptions",
+        "aws-marketplace:Subscribe",
+        "aws-marketplace:Unsubscribe"
+      ],
+      "Resource": "*"
     }
   ]
 }

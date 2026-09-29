@@ -7,6 +7,7 @@ import { Attribution } from './Attribution'
 import { Defend } from './Defend'
 import { Duel } from './Duel'
 import { AlertToggle } from './AlertToggle'
+import { Briefing } from './Briefing'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
@@ -22,7 +23,7 @@ function lidText(d: District) {
   return `The air mixes well over the next 24 hours, which helps clear pollution.`
 }
 
-export function DistrictPanel({ d, generatedAt, onClose, onTrace }: { d: District; generatedAt: string; onClose: () => void; onTrace: () => void }) {
+export function DistrictPanel({ d, generatedAt, onClose, onTrace, onHighlight }: { d: District; generatedAt: string; onClose: () => void; onTrace: () => void; onHighlight: (ids: string[]) => void }) {
   const cat = catOf(d.aqi)
   const advice = adviceFor(d.aqi)
   const [persona, setPersona] = useState<Persona>(loadPersona)
@@ -56,6 +57,8 @@ export function DistrictPanel({ d, generatedAt, onClose, onTrace }: { d: Distric
       <p className="fine">
         PM2.5 {d.pm25} µg/m³ and PM10 {d.pm10} µg/m³, 24-hour average. Estimated from Copernicus CAMS at {fmtHour(generatedAt)} IST.
       </p>
+
+      <Briefing district={d.id} onHighlight={onHighlight} />
 
       <section className="block" aria-labelledby="verdict-h">
         <h2 id="verdict-h">What to do today</h2>

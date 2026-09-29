@@ -1,6 +1,7 @@
 // Deterministic health guidance. Wording follows the CPCB 2014 NAQI health statements and
 // CAQM GRAP citizen charters; persona advice is a fixed matrix (no generated text).
 import { catIndex } from './naqi'
+import matrix from './advice-matrix.json'
 
 export type Persona = 'parent' | 'runner' | 'sensitive' | 'worker'
 
@@ -13,72 +14,9 @@ export const PERSONAS: { id: Persona; label: string }[] = [
 
 type Row = { cpcb: string; grap: string | null; verdict: string } & Record<Persona, string>
 
-// Index matches CATS: Good, Satisfactory, Moderate, Poor, Very Poor, Severe, Severe+
-export const MATRIX: Row[] = [
-  {
-    cpcb: 'Minimal impact.',
-    grap: null,
-    verdict: 'Go out',
-    parent: 'Normal outdoor play and school sports.',
-    runner: 'Ideal conditions for outdoor cardio and long runs.',
-    sensitive: 'Safe for all outdoor activities without restrictions.',
-    worker: 'No protective gear required.',
-  },
-  {
-    cpcb: 'Minor breathing discomfort to sensitive people.',
-    grap: null,
-    verdict: 'Go out',
-    parent: 'Normal outdoor activities. Keep the rescue inhaler handy if your child has diagnosed asthma.',
-    runner: 'Safe for outdoor workouts.',
-    sensitive: 'Mild irritation is possible during long stays outdoors.',
-    worker: 'No restrictions.',
-  },
-  {
-    cpcb: 'Breathing discomfort to people with lung disease, asthma and heart disease.',
-    grap: null,
-    verdict: 'Go, with care',
-    parent: 'Children with asthma should avoid long outdoor sprints during peak morning hours.',
-    runner: 'Sensitive athletes may feel a throat tickle. Shift intense intervals indoors.',
-    sensitive: 'Noticeable discomfort. Avoid heavy exertion outdoors and take preventive medication as prescribed.',
-    worker: 'Stay hydrated. Sensitive workers should consider basic particulate protection.',
-  },
-  {
-    cpcb: 'Breathing discomfort to most people on prolonged exposure.',
-    grap: 'GRAP Stage I',
-    verdict: 'Limit time outside',
-    parent: 'Ask the school to suspend outdoor morning assemblies. No outdoor sports for sensitive children.',
-    runner: 'Run indoors, or between 12 pm and 4 pm when the air mixes best.',
-    sensitive: 'Avoid outdoor walks. Keep windows shut during early-morning and late-night inversions.',
-    worker: 'Wear a well-fitted N95 for full shifts along main roads.',
-  },
-  {
-    cpcb: 'Respiratory illness on prolonged exposure.',
-    grap: 'GRAP Stage II',
-    verdict: 'Stay in if you can',
-    parent: 'Children should not play outdoors. Keep them indoors if they have symptoms, and check classroom air filtration.',
-    runner: 'No outdoor running. Hard exertion multiplies how much fine dust reaches deep into the lungs.',
-    sensitive: 'Stay in closed rooms and run a HEPA purifier. Keep your bronchodilator within reach.',
-    worker: 'N95 or FFP2 respirator is essential. Keep continuous outdoor exposure under 4 hours.',
-  },
-  {
-    cpcb: 'Affects healthy people and seriously impacts those with existing diseases.',
-    grap: 'GRAP Stage III',
-    verdict: 'Stay indoors',
-    parent: 'Push for online classes, in line with Directorate of Education orders. Keep your child indoors.',
-    runner: 'No outdoor exercise at all. Even light outdoor walking inflames the airways.',
-    sensitive: 'Risk of acute attacks and cardiac stress. Stay in; get medical help if your chest feels tight.',
-    worker: 'Hazardous conditions. Employers must issue N95 respirators and rotate staff indoors.',
-  },
-  {
-    cpcb: 'Emergency: serious risk of heart and lung events across the whole population.',
-    grap: 'GRAP Stage IV',
-    verdict: 'Stay indoors',
-    parent: 'Keep children in a sealed room with a purifier all day. Schools move online under GRAP IV.',
-    runner: 'No exercise outdoors. Train indoors on filtered air, or rest.',
-    sensitive: 'Medical emergency conditions. Stay in a sealed room with a HEPA purifier and seek care for breathlessness or chest pain.',
-    worker: 'Hazardous. Employers must supply N95s and hourly indoor breaks; defer outdoor work where possible.',
-  },
-]
+// Index matches CATS: Good, Satisfactory, Moderate, Poor, Very Poor, Severe, Severe+.
+// Shared with the General agent (infra/general) so both surfaces give identical guidance.
+export const MATRIX: Row[] = matrix
 
 export const adviceFor = (aqi: number) => MATRIX[catIndex(aqi)]
 
