@@ -369,6 +369,9 @@ def build():
         'calibration': {'stubbleK': STUBBLE_K, 'stubbleMax': STUBBLE_MAX,
                         'benchmark': 'IITM DSS (ews.tropmet.res.in/dss) daily Delhi stubble share'},
     }
+    rp = load_replay(now)
+    if rp:
+        world['replay'] = rp
     return world
 
 
@@ -389,6 +392,49 @@ def write(world):
     with gzip.open(os.path.join(ARCHIVE, f'world-{stamp}.json.gz'), 'wt') as f:
         f.write(body)
     return len(body)
+
+
+def stamp_time(key):
+    """'archive/world-2026092914.json.gz' -> 2026-09-29 14:00 UTC (stamps come from generatedAt[:13])."""
+    return datetime.strptime(key.rsplit('world-', 1)[1][:10], '%Y%m%d%H').replace(tzinfo=timezone.utc)
+
+
+def pick_archive(times, now, target_h=24, min_h=18):
+    """Archive nearest to now - target_h among those at least min_h old; ticks drift, so no fixed grid."""
+    ok = [t for t in times if (now - t).total_seconds() >= min_h * 3600]
+    return min(ok, key=lambda t: abs((now - t).total_seconds() - target_h * 3600)) if ok else None
+
+
+def replay_block(old, now):
+    """{id: [AQI then, what that run forecast for now]} for the Instant Replay Duel."""
+    h = round((now - datetime.fromisoformat(old['generatedAt'])).total_seconds() / 3600)
+    return {'at': old['generatedAt'],
+            'districts': {d['id']: [d['aqi'], d['fc'][h] if 0 <= h < len(d['fc']) else None] for d in old['districts']}}
+
+
+def load_replay(now):
+    """Replay block from the archive (S3 in Lambda, data/archive locally); None if none qualifies or anything fails."""
+    try:
+        if BUCKET:
+            c = s3()
+            pages = c.get_paginator('list_objects_v2').paginate(Bucket=BUCKET, Prefix='archive/world-')
+            keys = {stamp_time(o['Key']): o['Key'] for p in pages for o in p.get('Contents', [])}
+            t = pick_archive(list(keys), now)
+            if not t:
+                return None
+            old = json.loads(gzip.decompress(c.get_object(Bucket=BUCKET, Key=keys[t])['Body'].read()))
+        else:
+            names = [n for n in os.listdir(ARCHIVE) if n.startswith('world-')] if os.path.isdir(ARCHIVE) else []
+            keys = {stamp_time(n): n for n in names}
+            t = pick_archive(list(keys), now)
+            if not t:
+                return None
+            with gzip.open(os.path.join(ARCHIVE, keys[t]), 'rt') as f:
+                old = json.load(f)
+        return replay_block(old, now)
+    except Exception as e:  # a replay problem must never fail the world tick
+        print('replay skipped:', repr(e))
+        return None
 
 
 def handler(event=None, context=None):
