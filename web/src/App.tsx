@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { loadWorld, type District, type World } from './lib/world'
 import { AirqMap, type Focus } from './map/AirqMap'
 import { Intro } from './ui/Intro'
 import { RaidBanner } from './ui/RaidBanner'
 import { MapKey } from './ui/MapKey'
+
+const HowItWorks = lazy(() => import('./ui/HowItWorks'))
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
@@ -58,6 +60,7 @@ export default function App() {
   const [highlight, setHighlight] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('orders')
   const [focusKey, setFocusKey] = useState(0)
+  const [how, setHow] = useState(false)
   const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search))
   const [focus, setFocus] = useState<Focus>(null)
   const [introTrace, setIntroTrace] = useState<District | null>(null)
@@ -106,10 +109,7 @@ export default function App() {
   return (
     <main className="app">
       <AirqMap world={world} selected={selected} onSelect={select} panelOpen={!!selected} trace={tracing ? selected : introTrace} highlight={highlight} focus={focus} />
-      <TopBar world={world} onSelect={select} onGeneral={() => setSide('general')} onHelp={() => {
-        setSelectedId(null)
-        setIntro(true)
-      }}>
+      <TopBar world={world} onSelect={select} onGeneral={() => setSide('general')} onHelp={() => setHow(true)}>
         <Hud onMission={goMission} />
         {!intro && <RaidBanner world={world} onSelect={select} />}
         {!selected && <MapKey />}
@@ -133,6 +133,18 @@ export default function App() {
           }}
           onDone={() => endIntro()}
         />
+      )}
+      {how && (
+        <Suspense fallback={null}>
+          <HowItWorks
+            onClose={() => setHow(false)}
+            onReplay={() => {
+              setHow(false)
+              setSelectedId(null)
+              setIntro(true)
+            }}
+          />
+        </Suspense>
       )}
       {tracing && selected && (
         <div className="trace-banner" role="status">
