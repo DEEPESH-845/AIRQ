@@ -300,3 +300,15 @@ button { font: inherit; color: inherit; }
   .top-actions .search { flex: 1; }
   .general-btn { padding: 0 12px; font-size: 13px; }
 }
+
+/* ---------- report a source */
+.where { display: flex; gap: 8px; margin-bottom: 12px; }
+.where input { flex: 1; height: 38px; padding: 0 12px; border-radius: var(--r-s); border: 1px solid var(--line); background: var(--sky-2); color: var(--ink); font: 500 14px var(--ui); }
+.report-actions { display: grid; gap: 8px; }
+.report-actions .primary, .report-actions .secondary {
+  display: block; padding: 11px 14px; border-radius: var(--r-s); text-align: center; font-size: 14px; font-weight: 600;
+  text-decoration: none; cursor: pointer; color: var(--ink);
+}
+.report-actions .primary { border: 0; background: var(--ink); color: var(--sky-0); }
+.report-actions .secondary { border: 1px solid var(--line); background: transparent; }
+.report-actions .secondary:hover { border-color: var(--haze); }

@@ -8,6 +8,7 @@ import { Defend } from './Defend'
 import { Duel } from './Duel'
 import { AlertToggle } from './AlertToggle'
 import { Briefing } from './Briefing'
+import { ReportSource } from './ReportSource'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
@@ -93,6 +94,7 @@ export function DistrictPanel({ d, generatedAt, onClose, onTrace, onHighlight }:
       <Attribution d={d} onTrace={onTrace} />
       <Defend d={d} start={generatedAt} />
       <Duel d={d} generatedAt={generatedAt} />
+      <ReportSource d={d} />
     </aside>
   )
 }

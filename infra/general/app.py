@@ -15,8 +15,8 @@ from strands.models import BedrockModel
 
 BUCKET = os.environ.get('ARQ_BUCKET')
 QUOTA_TABLE = os.environ.get('QUOTA_TABLE')
-# Opus 5.5 is not enabled on this Bedrock account yet; Sonnet 4.5 is the most capable model it can call.
-MODEL_ID = os.environ.get('MODEL_ID', 'us.anthropic.claude-sonnet-4-5-20250929-v1:0')
+# Amazon Nova Micro: the cheapest Bedrock model that handles these tool calls well (first-party, no Marketplace subscription).
+MODEL_ID = os.environ.get('MODEL_ID', 'us.amazon.nova-micro-v1:0')
 DAILY_QUESTIONS = int(os.environ.get('DAILY_QUESTIONS', 10))
 HERE = os.path.dirname(os.path.abspath(__file__))
 MATRIX = json.load(open(os.path.join(HERE, 'advice-matrix.json')))
@@ -148,7 +148,7 @@ def health_guidance(aqi: int, persona: str) -> dict:
     return {'category': BANDS[band(aqi)][1], 'cpcb_statement': row['cpcb'], 'grap_stage': row['grap'], 'verdict': row['verdict'], 'advice': row[p]}
 
 
-TOOLS = [district_status, rank_districts, fires_near, health_guidance]
+TOOLS = [district_status, rank_districts, fires_near]  # health guidance is attached by code, never written by the model
 
 SYSTEM = """You are the General, the advisor inside ARQ, a live map of India's air quality framed as a strategy game.
 Pollution is the enemy; players defend their district. Speak like a calm, sharp field commander: brief, concrete, a little dramatic,
@@ -157,20 +157,49 @@ never alarmist. Plain English a 17-year-old understands.
 Rules:
 - Use the tools for every fact. Never invent AQI values, forecasts, fire counts or sources.
 - Source splits are model estimates; say "estimated" when you quote them.
-- Health advice: call health_guidance and quote its advice. Never mention medicines, doses or diagnoses; for symptoms say to see a doctor.
+- Never give health or safety advice, and never say whether something is safe: the app attaches official CPCB guidance after your answer.
+  Just give the air-quality facts. Never mention medicines, doses or diagnoses.
 - Keep answers under 90 words unless the question needs a list. No markdown headings; short sentences."""
 
-BRIEF = """Write this morning's briefing for {name}, {state}, in at most 3 sentences (under 60 words).
-Open with "Commander," then say how bad the air is, what is driving it and what is coming in the next 24 hours, and end with one concrete order
-for civilians (from health_guidance, persona "sensitive"). Use district_status first."""
+BRIEF = """Write this morning's situation report for {name}, {state}: exactly 2 sentences, under 45 words.
+Open with "Commander," then say how bad the air is and what is driving it, then what is coming in the next 24 hours.
+Call district_status first. Do not give health advice; the order line is added separately."""
 
 # ---------------------------------------------------------------- safety lint
 BLOCK = re.compile(r'\b(\d+\s?(mg|mcg|ml|puffs?)|dos(e|age)|prescri\w*|steroid\w*|salbutamol|albuterol|antibiotic\w*|diagnos\w*)\b', re.I)
 SAFE = 'For health decisions follow the CPCB guidance shown in the app, and see a doctor if you have symptoms.'
 
 
+THINK = re.compile(r'<thinking>.*?</thinking>\s*|</?(response|answer|result)>', re.S)
+QUOTED = [row[k] for row in MATRIX for k in ('cpcb', 'parent', 'runner', 'sensitive', 'worker')]
+
+
 def lint(text):
-    return SAFE if BLOCK.search(text) else text
+    text = THINK.sub('', text).strip()
+    unquoted = text
+    for q in QUOTED:  # the matrix's own wording ("medication as prescribed") is allowed; anything else is not
+        unquoted = unquoted.replace(q, '')
+    return SAFE if BLOCK.search(unquoted) else text
+
+
+HEALTH = re.compile(r'\b(safe|unsafe|health|healthy|breath\w*|mask|n95|kid|kids|child\w*|son|daughter|baby|school|run\w*|jog\w*|walk\w*|cycl\w*|exercis\w*|workout|asthma\w*|elderly|old|grand\w*|parents?|heart|lung\w*|pregnan\w*|outside|outdoors?|play\w*|work\w*|delivery|job)\b', re.I)
+PERSONAS = [('parent', r'\b(kid|kids|child\w*|son|daughter|baby|school|play\w*)\b'), ('runner', r'\b(run\w*|jog\w*|cycl\w*|exercis\w*|workout|gym)\b'),
+            ('sensitive', r'\b(asthma\w*|elderly|old|grand\w*|parents?|heart|lung\w*|pregnan\w*|copd)\b'), ('worker', r'\b(work\w*|delivery|job|shift)\b')]
+LABEL = {'parent': 'children', 'runner': 'runners', 'sensitive': 'people with asthma, heart or lung disease, and the elderly', 'worker': 'outdoor workers'}
+
+
+def guidance(q, d):
+    """Official guidance for a health-flavoured question: persona from the wording, worst AQI of the next 24 h."""
+    persona = next((p for p, rx in PERSONAS if re.search(rx, q, re.I)), 'sensitive')
+    worst = max(d['aqi'], max(d['fc'][:25]))
+    row = MATRIX[band(worst)]
+    return f"Official guidance for {LABEL[persona]} in {d['n']} (AQI up to {worst} in the next 24 h, {BANDS[band(worst)][1]}): {row['verdict']}. {row[persona]}"
+
+
+def order_line(d):
+    """Deterministic civilian order for a briefing: worst of now and the next 12 hours, persona 'sensitive'."""
+    row = MATRIX[band(max(d['aqi'], max(d['fc'][:13])))]
+    return f"Order: {row['verdict']}. {row['sensitive']}"
 
 
 def agent():
@@ -204,6 +233,8 @@ def briefing(d):
         except s3.exceptions.NoSuchKey:
             pass
     text, ids = run(BRIEF.format(name=d['n'], state=d['s']))
+    if text != SAFE:
+        text = f'{text} {order_line(d)}'
     out = {'text': text, 'highlight': ids, 'generatedAt': world()['generatedAt']}
     if BUCKET:
         s3.put_object(Bucket=BUCKET, Key=key, Body=json.dumps(out).encode(), ContentType='application/json')
@@ -240,6 +271,11 @@ def _handle(event):
         return reply(429, {'error': f'The General answers {DAILY_QUESTIONS} questions a day per player. Come back tomorrow.'})
     context_line = f"(The player is looking at {d['n']}, {d['s']}.) " if d else ''
     text, ids = run(context_line + q)
+    if HEALTH.search(q):
+        # guidance is for the district the question is about: the first one the agent looked up, else the open one
+        target = next((x for x in world()['districts'] if ids and x['id'] == ids[0] and x['n'].lower() in q.lower()), d)
+        if target:
+            text = f"{text}\n\n{guidance(q, target)}"
     return reply(200, {'text': text, 'highlight': ids})
 
 

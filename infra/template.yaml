@@ -317,7 +317,7 @@ Resources:
         Variables:
           ARQ_BUCKET: !Ref SiteBucket
           QUOTA_TABLE: !Ref GeneralQuota
-          MODEL_ID: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+          MODEL_ID: us.amazon.nova-micro-v1:0 # cheapest Bedrock model that handles the tool calls; no Marketplace subscription
           DAILY_QUESTIONS: '10'
       Policies:
         - S3CrudPolicy: { BucketName: !Ref SiteBucket }
