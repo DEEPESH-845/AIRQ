@@ -1,6 +1,6 @@
 // Self-check for briefing picks. Run: npx tsx src/lib/story.check.ts
 import assert from 'node:assert/strict'
-import { defaultDistrict, frontTrend, nearIndia, nearestDistrict, pickStory, poorPlus, worst } from './story'
+import { defaultDistrict, frontTrend, raidText, nearIndia, nearestDistrict, pickStory, poorPlus, worst } from './story'
 import type { Cluster, District, World } from './world'
 
 const att = (fire: number) => ({ fire, vehicles: 0.2, dust: 0.2, industry: 0.1, household: 0.1, regional: 0.4 - fire })
@@ -42,4 +42,10 @@ const P = (aqi: number, aqiPrev: number) => ({ aqi, aqiPrev }) as unknown as Dis
 assert.deepEqual(frontTrend([P(250, 150), P(220, 230), P(90, 260)]), { now: 2, delta: 0 })
 assert.deepEqual(frontTrend([P(250, 150), P(220, 100)]), { now: 2, delta: 2 })
 assert.deepEqual(frontTrend([P(150, 250)]), { now: 0, delta: -1 })
+// raid wording names the band the raid actually reaches, not always "Very Poor"
+const R = (kind: 'now' | 'incoming', aqi: number, etaH = 0, dust = false) => ({ id: 'x', n: 'Jind', s: 'S', aqi, kind, etaH, dust })
+assert.equal(raidText(R('now', 500)), 'Raid now: Jind is breathing Severe+ air')
+assert.equal(raidText(R('now', 320)), 'Raid now: Jind is breathing Very Poor air')
+assert.equal(raidText(R('incoming', 430, 7)), 'Incoming raid: Jind, Severe air in 7 h')
+assert.equal(raidText(R('incoming', 310, 1, true)), 'Incoming raid: Jind, Very Poor air in 1 h (dust storm)')
 console.log('ok')

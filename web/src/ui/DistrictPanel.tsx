@@ -10,6 +10,7 @@ import { AlertToggle } from './AlertToggle'
 import { Briefing } from './Briefing'
 import { ReportSource } from './ReportSource'
 import { Replay } from './Replay'
+import { raidText } from '../lib/story'
 import { act, completeMission, type Tab } from '../lib/player'
 
 const fmtHour = (iso: string, addH = 0) =>
@@ -164,11 +165,7 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, onClose, onTrace
         {tab === 'battle' && (
           <>
             {raid && (
-              <p className="raid-status">
-                {raid.kind === 'incoming'
-                  ? `Incoming raid: Very Poor air forecast in ${raid.etaH} h${raid.dust ? ' (dust storm)' : ''}.`
-                  : `Raid now: air here has crossed into Very Poor${raid.dust ? ' (dust storm)' : ''}.`}
-              </p>
+              <p className="raid-status">{raidText(raid)}.</p>
             )}
             <Attribution d={d} onTrace={onTrace} />
             <ReportSource d={d} />

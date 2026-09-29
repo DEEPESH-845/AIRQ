@@ -293,7 +293,6 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
       zoom: 6.4,
       padding: mobile ? { top: 90, bottom: Math.round(innerHeight * 0.45), left: 20, right: 20 } : { top: 90, bottom: 240, left: 40, right: 40 },
       duration: 1600,
-      essential: true,
     })
   }, [focus, ready])
 

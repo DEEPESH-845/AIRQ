@@ -1,5 +1,6 @@
 // Picks for the first-visit briefing. Everything comes from the live world; nothing is hardcoded.
 import type { District, World } from './world'
+import { catOf } from './naqi'
 
 export const worst = (ds: District[]) => ds.reduce((a, b) => (b.aqi > a.aqi ? b : a))
 export const poorPlus = (ds: District[]) => ds.filter((d) => d.aqi > 200).length
@@ -33,4 +34,11 @@ export function defaultDistrict(w: World): District {
 export function frontTrend(ds: District[]) {
   const now = poorPlus(ds)
   return { now, delta: now - ds.filter((d) => d.aqiPrev > 200).length }
+}
+
+/** One line for a raid, naming the band it actually reaches (a raid starts at Very Poor but can be Severe+). */
+export function raidText(r: World['raids'][number]) {
+  const band = catOf(r.aqi).name
+  const dust = r.dust ? ' (dust storm)' : ''
+  return r.kind === 'incoming' ? `Incoming raid: ${r.n}, ${band} air in ${r.etaH} h${dust}` : `Raid now: ${r.n} is breathing ${band} air${dust}`
 }
