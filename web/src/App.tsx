@@ -48,11 +48,6 @@ export default function App() {
     if (selectedId) act((p) => completeMission(p, 'command'))
   }, [selectedId])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSelectedId(null)
-    addEventListener('keydown', onKey)
-    return () => removeEventListener('keydown', onKey)
-  }, [])
 
   const selected = useMemo(() => world?.districts.find((d) => d.id === selectedId) ?? null, [world, selectedId])
   const [tracing, setTracing] = useState(false)
@@ -61,6 +56,17 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('orders')
   const [focusKey, setFocusKey] = useState(0)
   const [how, setHow] = useState(false)
+  // Escape closes the top-most layer only: the How AIRQ works sheet if open, else the district.
+  // (One handler: a second listener in the sheet would be detached by the re-render before it ran.)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (how) setHow(false)
+      else setSelectedId(null)
+    }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [how])
   const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search))
   const [focus, setFocus] = useState<Focus>(null)
   const [introTrace, setIntroTrace] = useState<District | null>(null)

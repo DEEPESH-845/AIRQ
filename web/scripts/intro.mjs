@@ -37,5 +37,17 @@ await page.keyboard.press('Escape')
 if (await page.$('.intro')) fail('Escape did not skip the briefing')
 await page.close()
 
+// Escape that closes How AIRQ works must not also close the open district
+page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+const did = await (await fetch(base + '/data/world.json')).json().then((w) => w.districts[0].id)
+await page.goto(`${base}/?d=${did}`, { waitUntil: 'networkidle' })
+await page.click('.help-btn')
+await page.waitForSelector('.how')
+await page.keyboard.press('Escape')
+await page.waitForTimeout(400)
+if (await page.$('.how')) fail('Escape did not close How AIRQ works')
+if (!(await page.$('.panel'))) fail('Escape on How AIRQ works also closed the district')
+await page.close()
+
 console.log(process.exitCode ? 'intro: FAIL' : 'intro: ok')
 await browser.close()
