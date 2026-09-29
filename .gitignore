@@ -11,3 +11,4 @@ build/
 .vapid.json
 infra/push/node_modules/
 infra/general/advice-matrix.json
+.DS_Store
