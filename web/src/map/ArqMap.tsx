@@ -26,6 +26,14 @@ const aqiColor = [
   451, CATS[6].color,
 ]
 
+// reveal the smoke path from its source (0) to the district (1) as p grows
+function trajGradient(p: number) {
+  const q = Math.min(Math.max(p, 0.002), 0.997)
+  return ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(255,122,26,0.9)', q, 'rgba(255,226,170,1)', q + 0.002, 'rgba(255,122,26,0)', 1, 'rgba(255,122,26,0)']
+}
+
+const empty = { type: 'FeatureCollection' as const, features: [] }
+
 const STYLE: StyleSpecification = {
   version: 8,
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
@@ -35,6 +43,9 @@ const STYLE: StyleSpecification = {
     districts: { type: 'geojson', data: '/geo/districts.geojson', promoteId: 'id' },
     fires: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     labels: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    traj: { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } },
+    trajpts: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    clusters: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [
     { id: 'sea', type: 'background', paint: { 'background-color': '#14122b' } },
@@ -90,6 +101,24 @@ const STYLE: StyleSpecification = {
       filter: ['==', ['get', 'id'], ''],
       paint: { 'line-color': '#ffffff', 'line-width': 2 },
     },
+    { id: 'traj-glow', type: 'line', source: 'traj', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 14, 'line-blur': 10, 'line-opacity': 0.45, 'line-gradient': trajGradient(0) as never } },
+    { id: 'traj-line', type: 'line', source: 'traj', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 3, 'line-gradient': trajGradient(0) as never } },
+    { id: 'clusters-ring', type: 'circle', source: 'clusters', paint: { 'circle-radius': 14, 'circle-color': 'rgba(255,122,26,0.12)', 'circle-stroke-color': '#ff7a1a', 'circle-stroke-width': 2 } },
+    { id: 'trajpts', type: 'circle', source: 'trajpts', paint: { 'circle-radius': 3.5, 'circle-color': '#14122b', 'circle-stroke-color': '#ffd27a', 'circle-stroke-width': 1.5, 'circle-opacity': ['get', 'show'], 'circle-stroke-opacity': ['get', 'show'] } },
+    {
+      id: 'trajpts-label',
+      type: 'symbol',
+      source: 'trajpts',
+      layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Semibold'], 'text-size': 12, 'text-anchor': 'left', 'text-offset': [0.9, 0], 'text-allow-overlap': true },
+      paint: { 'text-color': '#ffd27a', 'text-halo-color': 'rgba(20,18,43,0.9)', 'text-halo-width': 1.5, 'text-opacity': ['get', 'show'] },
+    },
+    {
+      id: 'clusters-label',
+      type: 'symbol',
+      source: 'clusters',
+      layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Semibold'], 'text-size': 13, 'text-offset': [0, 1.9], 'text-anchor': 'top', 'text-max-width': 12 },
+      paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(20,18,43,0.9)', 'text-halo-width': 1.5 },
+    },
     {
       id: 'labels',
       type: 'symbol',
@@ -112,9 +141,10 @@ type Props = {
   selected: District | null
   onSelect: (id: string | null) => void
   panelOpen: boolean
+  trace: District | null
 }
 
-export function ArqMap({ world, selected, onSelect, panelOpen }: Props) {
+export function ArqMap({ world, selected, onSelect, panelOpen, trace }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const tip = useRef<HTMLDivElement>(null)
@@ -213,6 +243,62 @@ export function ArqMap({ world, selected, onSelect, panelOpen }: Props) {
     if (selected) map.flyTo({ center: selected.c, zoom: selected.s === 'Delhi' ? 8.6 : selected.k === 'ncr' ? 7.6 : 6.8, padding, duration: 1600, essential: true })
     else map.fitBounds(INDIA, { padding: homePadding(), duration: 1200 })
   }, [selected, ready, panelOpen, world])
+
+  // Trace to Source: draw the 36 h back-trajectory from the fire cluster into the district
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const traj = map.getSource('traj') as GeoJSONSource
+    const pts = map.getSource('trajpts') as GeoJSONSource
+    const cl = map.getSource('clusters') as GeoJSONSource
+    if (!trace) {
+      traj.setData(empty)
+      pts.setData(empty)
+      cl.setData(empty)
+      return
+    }
+    const path = [...trace.traj].reverse() // oldest point first: the smoke's real direction of travel
+    traj.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: path }, properties: {} })
+    const n = path.length - 1
+    const marks = trace.traj
+      .map((c, k) => ({ c, h: k * 3 }))
+      .filter(({ h }) => h > 0 && h % 12 === 0)
+    cl.setData({
+      type: 'FeatureCollection',
+      features: trace.clusters.map((c) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: c.c },
+        properties: { label: `${c.fires} fire${c.fires > 1 ? 's' : ''} near ${c.near.split(',')[0]}` },
+      })),
+    })
+    const lons = [...path.map((p) => p[0]), ...trace.clusters.map((c) => c.c[0])]
+    const lats = [...path.map((p) => p[1]), ...trace.clusters.map((c) => c.c[1])]
+    const mobile = innerWidth < 760
+    map.fitBounds(
+      [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+      { padding: mobile ? { top: 90, bottom: innerHeight * 0.5, left: 30, right: 30 } : { top: 110, bottom: 90, left: 90, right: 520 }, duration: 1400, maxZoom: 8 },
+    )
+    let raf = 0
+    const t0 = performance.now() + 1300
+    const frame = (t: number) => {
+      const p = Math.min(1, Math.max(0, (t - t0) / 2600))
+      const e = 1 - Math.pow(1 - p, 3)
+      map.setPaintProperty('traj-line', 'line-gradient', trajGradient(e) as never)
+      map.setPaintProperty('traj-glow', 'line-gradient', trajGradient(e) as never)
+      map.setPaintProperty('clusters-ring', 'circle-radius', 12 + 5 * Math.sin(t / 260))
+      pts.setData({
+        type: 'FeatureCollection',
+        features: marks.map(({ c, h }) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: c },
+          properties: { label: `${h} h ago`, show: e >= 1 - (h / 3) / n ? 1 : 0 },
+        })),
+      })
+      raf = requestAnimationFrame(frame)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
+  }, [trace, ready])
 
   return (
     <div className="map-wrap">

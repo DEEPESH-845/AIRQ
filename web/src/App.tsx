@@ -29,6 +29,8 @@ export default function App() {
   }, [])
 
   const selected = useMemo(() => world?.districts.find((d) => d.id === selectedId) ?? null, [world, selectedId])
+  const [tracing, setTracing] = useState(false)
+  useEffect(() => setTracing(false), [selectedId])
 
   if (error)
     return (
@@ -40,10 +42,20 @@ export default function App() {
 
   return (
     <main className="app">
-      <ArqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} />
+      <ArqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} />
       <TopBar world={world} onSelect={setSelectedId} />
       <NationalReadout world={world} onSelect={setSelectedId} />
-      {selected && <DistrictPanel key={selected.id} d={selected} onClose={() => setSelectedId(null)} />}
+      {tracing && selected && (
+        <div className="trace-banner" role="status">
+          <span>
+            Smoke path into <b>{selected.n}</b> over the last 36 hours
+          </span>
+          <button onClick={() => setTracing(false)}>Done</button>
+        </div>
+      )}
+      {selected && (
+        <DistrictPanel key={selected.id} d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={() => setTracing(true)} />
+      )}
     </main>
   )
 }

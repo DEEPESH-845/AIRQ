@@ -18,6 +18,8 @@ export type District = {
   c: [number, number]
   k: 'ncr' | 'igp' | 'rest'
   aqi: number
+  /** NAQI 24 hours earlier */
+  aqiPrev: number
   cat: Cat
   pm25: number
   pm10: number

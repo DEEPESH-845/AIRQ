@@ -193,7 +193,7 @@ def build():
 
     aq = cached('aq.json', lambda: open_meteo(
         'https://air-quality-api.open-meteo.com/v1/air-quality', [c[1] for c in cents], [c[0] for c in cents],
-        {'hourly': 'pm2_5,pm10', 'past_days': 1, 'forecast_days': 3}),
+        {'hourly': 'pm2_5,pm10', 'past_days': 2, 'forecast_days': 3}),
         sources, 'Copernicus CAMS via Open-Meteo Air Quality', 'https://open-meteo.com/en/docs/air-quality-api')
 
     glon = [LON0 + i * D for j in range(NY) for i in range(NX)]
@@ -248,6 +248,7 @@ def build():
         aqi_fc = [naqi(mean24(pm25s, i), mean24(pm10s, i)) for i in fc_idx]
         pm25_now, pm10_now = mean24(pm25s, now_a), mean24(pm10s, now_a)
         aqi = aqi_fc[0]
+        aqi_prev = naqi(mean24(pm25s, now_a - 24), mean24(pm10s, now_a - 24))
 
         # best 2-hour window in the next 24 h, daytime IST (06-21)
         best = None
@@ -297,7 +298,7 @@ def build():
         out.append({
             'id': props['id'], 'n': props['district'].title(), 's': props['state'].title(),
             'c': [round(clon, 3), round(clat, 3)], 'k': kind,
-            'aqi': aqi, 'cat': category(aqi), 'pm25': round(pm25_now), 'pm10': round(pm10_now),
+            'aqi': aqi, 'aqiPrev': aqi_prev, 'cat': category(aqi), 'pm25': round(pm25_now), 'pm10': round(pm10_now),
             'fc': aqi_fc, 'pm25h': [round(x) if x is not None else None for x in pm25s[now_a:now_a + 49]],
             'att': att, 'conf': 'medium' if biomass > 50 or kind == 'ncr' else 'low',
             'traj': traj, 'clusters': [{'c': [round(c[3] / c[1], 3), round(c[4] / c[1], 3)], 'fires': c[1],

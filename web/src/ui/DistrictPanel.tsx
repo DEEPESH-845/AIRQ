@@ -1,8 +1,29 @@
+import { useState } from 'react'
 import type { District } from '../lib/world'
 import { catOf } from '../lib/naqi'
+import { PERSONAS, adviceFor, loadPersona, savePersona, type Persona } from '../lib/advice'
+import { ForecastChart } from './ForecastChart'
+import { Attribution } from './Attribution'
 
-export function DistrictPanel({ d, onClose }: { d: District; onClose: () => void }) {
+const fmtHour = (iso: string, addH = 0) =>
+  new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
+
+function lidText(d: District) {
+  if (d.blhMin < 200)
+    return `Tonight the mixing layer collapses to about ${d.blhMin} m. Smog gets trapped near the ground, so mornings will be worst.`
+  if (d.viMin < 6000) return `Ventilation drops below 6,000 m²/s in the next 24 hours, so pollution will linger.`
+  return `The air mixes well over the next 24 hours, which helps clear pollution.`
+}
+
+export function DistrictPanel({ d, generatedAt, onClose, onTrace }: { d: District; generatedAt: string; onClose: () => void; onTrace: () => void }) {
   const cat = catOf(d.aqi)
+  const advice = adviceFor(d.aqi)
+  const [persona, setPersona] = useState<Persona>(loadPersona)
+  const pick = (p: Persona) => {
+    setPersona(p)
+    savePersona(p)
+  }
+
   return (
     <aside className="panel" aria-label={`${d.n} air quality`} style={{ ['--c' as string]: cat.color }}>
       <header className="panel-head">
@@ -16,15 +37,49 @@ export function DistrictPanel({ d, onClose }: { d: District; onClose: () => void
           </svg>
         </button>
       </header>
+
       <div className="aqi-row">
         <span className="aqi-num">{d.aqi}</span>
         <div>
           <span className="aqi-cat">{d.cat}</span>
-          <span className="aqi-sub">
-            PM2.5 {d.pm25} µg/m³, PM10 {d.pm10} µg/m³, 24-hour average
-          </span>
+          <span className="aqi-sub">{advice.cpcb}</span>
+          {advice.grap && <span className="grap">{advice.grap} applies in Delhi-NCR at this level</span>}
         </div>
       </div>
+      <p className="fine">
+        PM2.5 {d.pm25} µg/m³ and PM10 {d.pm10} µg/m³, 24-hour average. Estimated from Copernicus CAMS at {fmtHour(generatedAt)} IST.
+      </p>
+
+      <section className="block" aria-labelledby="verdict-h">
+        <h2 id="verdict-h">What to do today</h2>
+        <div className="seg" role="radiogroup" aria-label="Who is this for">
+          {PERSONAS.map((p) => (
+            <button key={p.id} role="radio" aria-checked={persona === p.id} onClick={() => pick(p.id)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <p className="verdict">
+          <b>{advice.verdict}.</b> {advice[persona]}
+        </p>
+        {d.best && (
+          <p className="best">
+            <span>Cleanest window today</span>
+            <b>
+              {fmtHour(d.best.start)} to {fmtHour(d.best.start, 2)}
+            </b>
+            <small>PM2.5 around {d.best.pm25} µg/m³</small>
+          </p>
+        )}
+      </section>
+
+      <section className="block" aria-labelledby="fc-h">
+        <h2 id="fc-h">Next 48 hours</h2>
+        <ForecastChart fc={d.fc} start={generatedAt} />
+        <p className="lid">{lidText(d)}</p>
+      </section>
+
+      <Attribution d={d} onTrace={onTrace} />
     </aside>
   )
 }
