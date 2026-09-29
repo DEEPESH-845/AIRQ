@@ -2,7 +2,7 @@ import type { World } from '../lib/world'
 import { CATS, catIndex } from '../lib/naqi'
 
 /** Bottom-left instrument: how India's districts split across the NAQI bands, doubling as the legend. */
-export function NationalReadout({ world, onSelect }: { world: World; onSelect: (id: string) => void }) {
+export function NationalReadout({ world, onSelect, onRankings }: { world: World; onSelect: (id: string) => void; onRankings: () => void }) {
   const counts = CATS.map(() => 0)
   for (const d of world.districts) counts[catIndex(d.aqi)]++
   const total = world.districts.length
@@ -38,6 +38,9 @@ export function NationalReadout({ world, onSelect }: { world: World; onSelect: (
           </button>
         ))}
       </div>
+      <button className="to-rankings" onClick={onRankings}>
+        See all rankings
+      </button>
     </section>
   )
 }

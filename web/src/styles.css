@@ -191,3 +191,31 @@ button { font: inherit; color: inherit; }
 @media (max-width: 760px) {
   .trace-banner { top: 128px; font-size: 13px; }
 }
+
+/* ---------- rankings */
+.rankings {
+  position: absolute; top: 76px; left: var(--gutter); bottom: var(--gutter); width: 400px;
+  display: flex; flex-direction: column; padding: 20px 20px 8px; border-radius: var(--r-m);
+  background: rgba(27, 25, 52, 0.96); border: 1px solid var(--line);
+  animation: rank-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes rank-in { from { opacity: 0; transform: translateX(-16px); } }
+.rankings .seg { margin-top: 14px; }
+.state-pick { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: var(--haze); font-size: 13px; }
+.state-pick select { flex: 1; height: 34px; padding: 0 10px; border-radius: var(--r-s); border: 1px solid var(--line); background: var(--sky-2); color: var(--ink); font: 500 14px var(--ui); }
+.rank-list { list-style: none; margin: 0 -8px; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
+.rank-list button {
+  display: grid; grid-template-columns: 28px 1fr auto auto; align-items: center; gap: 10px; width: 100%;
+  padding: 8px; border: 0; border-radius: var(--r-s); background: transparent; text-align: left; cursor: pointer;
+}
+.rank-list button:hover { background: var(--sky-2); }
+.rank { font: 600 18px/1 var(--display); color: var(--haze-2); text-align: right; }
+.who { font-size: 14px; font-weight: 600; }
+.who small { display: block; font-weight: 400; color: var(--haze); font-size: 12px; }
+.rank-list b { font: 800 24px/1 var(--display); color: var(--c); min-width: 44px; text-align: right; }
+.aqi-chip { padding: 2px 7px; border-radius: 999px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--c) 22%, transparent); }
+.to-rankings { margin-top: 12px; padding: 0; border: 0; background: none; color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+@media (max-width: 760px) {
+  .rankings { top: 0; left: 0; right: 0; bottom: 0; width: auto; border-radius: 0; padding-top: max(20px, env(safe-area-inset-top)); z-index: 2; }
+  .readout .to-rankings { display: block; }
+}

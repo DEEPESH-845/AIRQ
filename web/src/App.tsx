@@ -4,6 +4,7 @@ import { ArqMap } from './map/ArqMap'
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
+import { Rankings } from './ui/Rankings'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -30,6 +31,7 @@ export default function App() {
 
   const selected = useMemo(() => world?.districts.find((d) => d.id === selectedId) ?? null, [world, selectedId])
   const [tracing, setTracing] = useState(false)
+  const [ranking, setRanking] = useState(false)
   useEffect(() => setTracing(false), [selectedId])
 
   if (error)
@@ -44,7 +46,11 @@ export default function App() {
     <main className="app">
       <ArqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} />
       <TopBar world={world} onSelect={setSelectedId} />
-      <NationalReadout world={world} onSelect={setSelectedId} />
+      {ranking ? (
+        <Rankings world={world} onSelect={setSelectedId} onClose={() => setRanking(false)} />
+      ) : (
+        <NationalReadout world={world} onSelect={setSelectedId} onRankings={() => setRanking(true)} />
+      )}
       {tracing && selected && (
         <div className="trace-banner" role="status">
           <span>
