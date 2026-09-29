@@ -9,6 +9,7 @@ import { Duel } from './Duel'
 import { AlertToggle } from './AlertToggle'
 import { Briefing } from './Briefing'
 import { ReportSource } from './ReportSource'
+import { Replay } from './Replay'
 import { act, completeMission, type Tab } from '../lib/player'
 
 const fmtHour = (iso: string, addH = 0) =>
@@ -175,6 +176,7 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, onClose, onTrace
         )}
         {tab === 'play' && (
           <>
+            <Replay world={world} d={d} />
             <Defend d={d} start={generatedAt} />
             <Duel d={d} generatedAt={generatedAt} />
           </>

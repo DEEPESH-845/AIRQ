@@ -1,5 +1,6 @@
 import type { Attribution, District } from './world'
 import { CATS, catIndex } from './naqi'
+import { scoreCall } from './replay'
 
 // PM2.5 <-> NAQI sub-index (CPCB 2014), used to apply source cuts in concentration space.
 const PM = [
@@ -93,7 +94,7 @@ export function settle(districts: District[], generatedAt: string): Result[] {
     const d = districts.find((x) => x.id === c.district)
     if (d) {
       const actualBand = catIndex(d.aqi)
-      const points = c.band === actualBand ? (c.ai === actualBand ? 20 : 50) : Math.abs(c.band - actualBand) === 1 ? 5 : 0
+      const points = scoreCall(c.band, c.ai, actualBand)
       done.push({ ...c, actual: d.aqi, actualBand, points })
     }
     return false

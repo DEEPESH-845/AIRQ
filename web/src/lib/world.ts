@@ -54,6 +54,8 @@ export type World = {
   fires: [lon: number, lat: number, frp: number, hoursAgo: number][]
   wind: Wind
   raids: { id: string; n: string; s: string; aqi: number; kind: 'now' | 'incoming'; etaH: number; dust: boolean }[]
+  /** From the archive nearest 24 h ago: AQI then, and what that run forecast for now */
+  replay?: { at: string; districts: Record<string, [number, number | null]> }
 }
 
 export async function loadWorld(): Promise<World> {
