@@ -42,7 +42,7 @@ export function Replay({ world, d }: { world: World; d: District }) {
               style={{ ['--c' as string]: CATS[i].color }}
               onClick={() => {
                 setCall(i)
-                act((x) => recordReplay(x, d.id, now, scoreCall(i, round.fcBand, actual)))
+                act((x) => recordReplay(x, d.id, Date.now(), scoreCall(i, round.fcBand, actual)))
               }}
             >
               {CATS[i].name}

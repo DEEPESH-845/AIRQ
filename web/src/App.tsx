@@ -26,23 +26,34 @@ export default function App() {
   useEffect(() => {
     loadWorld().then((w) => {
       setWorld(w)
-      setResults(settle(w.districts, w.generatedAt))
+      const r = settle(w.districts, w.generatedAt)
+      setResults(r) // the results toast shows the XP; award in the same step so a closed tab can't lose it
+      act((p) => addPoints(p, r.reduce((a, x) => a + x.points, 0), 'Forecast Duel results'))
     }, (e) => setError(String(e.message ?? e)))
   }, [])
 
   useEffect(() => {
     if (!world) return
-    act((p) => checkIn(p, Date.now()))
-    act((p) => addPoints(p, results.reduce((a, x) => a + x.points, 0), 'Forecast Duel results'))
-  }, [world]) // eslint-disable-line react-hooks/exhaustive-deps -- once per loaded world; results arrive with it
+    act((p) => checkIn(p, Date.now())) // after Hud mounts, so its toast shows
+  }, [world])
 
-  // deep link: ?d=<district id>
+  // deep link: ?d=<district id>. Opening a district pushes a history entry so Back closes it.
   useEffect(() => {
     const url = new URL(location.href)
+    const cur = url.searchParams.get('d')
+    if (cur === selectedId) return
     if (selectedId) url.searchParams.set('d', selectedId)
     else url.searchParams.delete('d')
-    history.replaceState(null, '', url)
+    if (selectedId && !cur) history.pushState({ airqDistrict: true }, '', url)
+    else history.replaceState(history.state, '', url)
   }, [selectedId])
+  useEffect(() => {
+    const onPop = () => setSelectedId(new URLSearchParams(location.search).get('d'))
+    addEventListener('popstate', onPop)
+    return () => removeEventListener('popstate', onPop)
+  }, [])
+  // closing from the UI undoes our own history entry, so Back doesn't land on a duplicate
+  const closeDistrict = () => (history.state?.airqDistrict ? history.back() : setSelectedId(null))
 
   useEffect(() => {
     if (selectedId) act((p) => completeMission(p, 'command'))
@@ -56,17 +67,21 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('orders')
   const [focusKey, setFocusKey] = useState(0)
   const [how, setHow] = useState(false)
-  // Escape closes the top-most layer only: the How AIRQ works sheet if open, else the district.
-  // (One handler: a second listener in the sheet would be detached by the re-render before it ran.)
+  const [spot, setSpot] = useState<MissionId | null>(null)
+  const [keyOpen, setKeyOpen] = useState(() => innerWidth >= 760)
+  // Escape closes the top-most layer only: the sheet, else a running trace, else the district.
+  // Never while typing (inputs use Escape to clear themselves). One handler: a second listener
+  // in the sheet would be detached by the re-render before it ran.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      if (e.key !== 'Escape' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (how) setHow(false)
-      else setSelectedId(null)
+      else if (tracing) setTracing(false)
+      else if (selectedId) closeDistrict()
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  }, [how])
+  }, [how, tracing, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps -- closeDistrict only reads history
   const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search))
   const [focus, setFocus] = useState<Focus>(null)
   const [introTrace, setIntroTrace] = useState<District | null>(null)
@@ -81,6 +96,8 @@ export default function App() {
     setIntroTrace(null)
     setFocus(home ? { to: 'india' } : null)
     act(markIntroSeen)
+    // give keyboard focus somewhere sensible when the card disappears
+    if (home) requestAnimationFrame(() => document.querySelector<HTMLElement>('.help-btn')?.focus())
   }
   // choosing a district any way (map, search, rankings) ends the briefing: they have taken command
   const select = (id: string | null) => {
@@ -90,14 +107,19 @@ export default function App() {
   useEffect(() => setTracing(false), [selectedId])
   const goMission = (id: MissionId) => {
     if (!world) return
-    if (id === 'general') return setSide('general')
+    if (id === 'general') return openGeneral()
     setSelectedId((cur) => cur ?? defaultDistrict(world).id)
     if (intro) endIntro(false)
     const m = MISSIONS.find((x) => x.id === id)
     if (m?.tab) {
       setTab(m.tab)
+      setSpot(id)
       setFocusKey((k) => k + 1)
     }
+  }
+  const openGeneral = () => {
+    if (intro) endIntro()
+    setSide('general')
   }
   const startTrace = () => {
     setTracing(true)
@@ -115,10 +137,10 @@ export default function App() {
   return (
     <main className="app">
       <AirqMap world={world} selected={selected} onSelect={select} panelOpen={!!selected} trace={tracing ? selected : introTrace} highlight={highlight} focus={focus} />
-      <TopBar world={world} onSelect={select} onGeneral={() => setSide('general')} onHelp={() => setHow(true)}>
+      <TopBar world={world} onSelect={select} onGeneral={openGeneral} onHelp={() => setHow(true)}>
         <Hud onMission={goMission} />
         {!intro && <RaidBanner world={world} onSelect={select} />}
-        {!selected && <MapKey />}
+        {!selected && <MapKey open={keyOpen} onToggle={setKeyOpen} />}
       </TopBar>
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={select} onClose={() => setSide('readout')} />}
@@ -172,7 +194,7 @@ export default function App() {
       )}
       {selected && (
         <Boundary key={selected.id}>
-        <DistrictPanel d={selected} world={world} tab={tab} onTab={setTab} focusKey={focusKey} onClose={() => setSelectedId(null)} onTrace={startTrace} onHighlight={setHighlight} />
+        <DistrictPanel d={selected} world={world} tab={tab} onTab={setTab} focusKey={focusKey} spot={spot} onClose={closeDistrict} onTrace={startTrace} onHighlight={setHighlight} />
         </Boundary>
       )}
     </main>

@@ -419,3 +419,8 @@ button { font: inherit; color: inherit; }
 @media (max-width: 760px) {
   .app:has(.panel) .topbar .raid-banner, .app:has(.panel) .hud-count { display: none; }
 }
+/* a mission prompt glows its control once */
+.spotlight { border-radius: 12px; animation: spotlight 1.3s ease 2; }
+@keyframes spotlight { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 122, 26, 0); } 40% { box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.55); } }
+@media (prefers-reduced-motion: reduce) { .spotlight { animation: none; box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.55); } }
+@media (max-width: 760px) { .panel { background: rgba(27, 25, 52, 0.99); } }

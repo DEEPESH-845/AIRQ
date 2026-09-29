@@ -25,7 +25,7 @@ export function Duel({ d, generatedAt }: { d: District; generatedAt: string }) {
       ) : (
         <>
           <p className="lede">What will the air be here this time tomorrow? Beat the AIRQ forecast (CAMS) to score.</p>
-          <div className="duel-opts">
+          <div className="duel-opts" data-mission="call">
             {options.map((i) => (
               <button
                 key={i}

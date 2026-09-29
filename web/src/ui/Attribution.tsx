@@ -37,7 +37,7 @@ export function Attribution({ d, onTrace }: { d: District; onTrace: () => void }
         ))}
       </ul>
       {cl && cl.fires > 0 ? (
-        <button className="trace" onClick={onTrace}>
+        <button className="trace" onClick={onTrace} data-mission="trace">
           <span>
             <b>Trace the smoke</b>
             <small>

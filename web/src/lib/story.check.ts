@@ -1,6 +1,6 @@
 // Self-check for briefing picks. Run: npx tsx src/lib/story.check.ts
 import assert from 'node:assert/strict'
-import { defaultDistrict, frontTrend, raidText, nearIndia, nearestDistrict, pickStory, poorPlus, worst } from './story'
+import { defaultDistrict, frontTrend, raidLevels, raidText, nearIndia, nearestDistrict, pickStory, poorPlus, worst } from './story'
 import type { Cluster, District, World } from './world'
 
 const att = (fire: number) => ({ fire, vehicles: 0.2, dust: 0.2, industry: 0.1, household: 0.1, regional: 0.4 - fire })
@@ -48,4 +48,7 @@ assert.equal(raidText(R('now', 500)), 'Raid now: Jind is breathing Severe+ air')
 assert.equal(raidText(R('now', 320)), 'Raid now: Jind is breathing Very Poor air')
 assert.equal(raidText(R('incoming', 430, 7)), 'Incoming raid: Jind, Severe air in 7 h')
 assert.equal(raidText(R('incoming', 310, 1, true)), 'Incoming raid: Jind, Very Poor air in 1 h (dust storm)')
+// map raid levels: 2 = raid now (haze + front), 1 = incoming (front only); unknown ids ignored
+assert.deepEqual(raidLevels([R('now', 500), { ...R('incoming', 310, 3), id: 'y' }]), { x: 2, y: 1 })
+assert.deepEqual(raidLevels([]), {})
 console.log('ok')

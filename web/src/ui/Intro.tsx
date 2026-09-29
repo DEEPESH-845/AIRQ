@@ -20,8 +20,8 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
   useEffect(() => {
     if (step === 1) onScene(story.kind === 'fire' ? { focus: null, trace: story.d } : { focus: { to: story.d.c }, trace: null })
     else onScene({ focus: { to: 'india' }, trace: null })
-    card.current?.focus()
   }, [step, story, onScene])
+  useEffect(() => card.current?.focus(), []) // once: the step text is aria-live, so later steps are announced
 
   useEffect(() => {
     // Escape skips the briefing, except while typing (the search box uses Escape to clear itself)

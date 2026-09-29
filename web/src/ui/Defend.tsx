@@ -36,7 +36,7 @@ export function Defend({ d, start }: { d: District; start: string }) {
       <p className="lede">
         You have {BUDGET} points a day. Spend them on real measures and see how tomorrow changes.
       </p>
-      <div className="def-grid">
+      <div className="def-grid" data-mission="defend">
         {DEFENSES.map((x) => {
           const on = active.includes(x.id)
           const blocked = !on && spent + x.cost > BUDGET

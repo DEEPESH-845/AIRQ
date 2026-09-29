@@ -28,7 +28,7 @@ export function AlertToggle({ district, name }: { district: string; name: string
   }
 
   return (
-    <div className="alert-toggle">
+    <div className="alert-toggle" data-mission="alert">
       <button onClick={click} aria-pressed={state === 'on'} disabled={state === 'busy'}>
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path

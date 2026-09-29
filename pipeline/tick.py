@@ -399,6 +399,17 @@ def stamp_time(key):
     return datetime.strptime(key.rsplit('world-', 1)[1][:10], '%Y%m%d%H').replace(tzinfo=timezone.utc)
 
 
+def archive_times(keys):
+    """{stamp time: key} for archive files; stray or oddly named keys are skipped."""
+    out = {}
+    for k in keys:
+        try:
+            out[stamp_time(k)] = k
+        except (IndexError, ValueError):
+            pass
+    return out
+
+
 def pick_archive(times, now, target_h=24, min_h=18):
     """Archive nearest to now - target_h among those at least min_h old; ticks drift, so no fixed grid."""
     ok = [t for t in times if (now - t).total_seconds() >= min_h * 3600]
@@ -418,14 +429,14 @@ def load_replay(now):
         if BUCKET:
             c = s3()
             pages = c.get_paginator('list_objects_v2').paginate(Bucket=BUCKET, Prefix='archive/world-')
-            keys = {stamp_time(o['Key']): o['Key'] for p in pages for o in p.get('Contents', [])}
+            keys = archive_times(o['Key'] for p in pages for o in p.get('Contents', []))
             t = pick_archive(list(keys), now)
             if not t:
                 return None
             old = json.loads(gzip.decompress(c.get_object(Bucket=BUCKET, Key=keys[t])['Body'].read()))
         else:
             names = [n for n in os.listdir(ARCHIVE) if n.startswith('world-')] if os.path.isdir(ARCHIVE) else []
-            keys = {stamp_time(n): n for n in names}
+            keys = archive_times(names)
             t = pick_archive(list(keys), now)
             if not t:
                 return None

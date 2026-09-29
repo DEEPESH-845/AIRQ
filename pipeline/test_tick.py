@@ -1,6 +1,6 @@
 """Self-check for the pure logic in tick.py. Run: python3 pipeline/test_tick.py"""
 import math
-from tick import naqi, category, uv, centroid, attribution, sub_index, BP, stamp_time, pick_archive, replay_block
+from tick import naqi, category, uv, centroid, attribution, sub_index, BP, stamp_time, pick_archive, replay_block, archive_times
 from datetime import datetime, timezone
 
 # NAQI breakpoints (CPCB 2014): PM2.5 60 -> 100, 90 -> 200, 250 -> 400; max of sub-indices wins
@@ -42,4 +42,7 @@ old = {'generatedAt': '2026-09-29T13:00:00+00:00', 'districts': [
 rb = replay_block(old, now)
 assert rb['at'] == '2026-09-29T13:00:00+00:00'
 assert rb['districts']['a'] == [180, 25] and rb['districts']['b'] == [90, None]
+# archive listing: stray or oddly named keys are skipped instead of dropping the whole replay
+k = archive_times(['archive/world-2026092914.json.gz', 'archive/world-latest.json.gz', 'archive/notes.txt'])
+assert list(k) == [t('2026092914')] and k[t('2026092914')] == 'archive/world-2026092914.json.gz'
 print('ok')

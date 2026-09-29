@@ -1,9 +1,9 @@
 import { CATS } from '../lib/naqi'
 
 /** What the colours, streaks, dots and rings on the map mean. Native details: no script needed. */
-export function MapKey() {
+export function MapKey({ open, onToggle }: { open: boolean; onToggle: (open: boolean) => void }) {
   return (
-    <details className="map-key" open={innerWidth >= 760}>
+    <details className="map-key" open={open} onToggle={(e) => onToggle(e.currentTarget.open)}>
       <summary>Map key</summary>
       <ul>
         <li>

@@ -42,3 +42,6 @@ export function raidText(r: World['raids'][number]) {
   const dust = r.dust ? ' (dust storm)' : ''
   return r.kind === 'incoming' ? `Incoming raid: ${r.n}, ${band} air in ${r.etaH} h${dust}` : `Raid now: ${r.n} is breathing ${band} air${dust}`
 }
+
+/** Raid level per district for the map: 2 = raid now (haze and front), 1 = incoming (front only). */
+export const raidLevels = (raids: World['raids']) => Object.fromEntries(raids.map((r) => [r.id, r.kind === 'now' ? 2 : 1]))

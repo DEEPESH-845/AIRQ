@@ -11,7 +11,7 @@ import { Briefing } from './Briefing'
 import { ReportSource } from './ReportSource'
 import { Replay } from './Replay'
 import { raidText } from '../lib/story'
-import { act, completeMission, type Tab } from '../lib/player'
+import { act, completeMission, type MissionId, type Tab } from '../lib/player'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
@@ -66,13 +66,24 @@ function Tabs({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   )
 }
 
-export function DistrictPanel({ d, world, tab, onTab, focusKey, onClose, onTrace, onHighlight }: { d: District; world: World; tab: Tab; onTab: (t: Tab) => void; focusKey: number; onClose: () => void; onTrace: () => void; onHighlight: (ids: string[]) => void }) {
+export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onClose, onTrace, onHighlight }: { d: District; world: World; tab: Tab; onTab: (t: Tab) => void; focusKey: number; spot?: MissionId | null; onClose: () => void; onTrace: () => void; onHighlight: (ids: string[]) => void }) {
   const generatedAt = world.generatedAt
   const raid = world.raids.find((r) => r.id === d.id)
   const panelRef = useRef<HTMLDivElement>(null)
+  // a mission prompt brings its control into view, focuses it and glows it once
   useEffect(() => {
-    if (focusKey) panelRef.current?.focus()
-  }, [focusKey])
+    if (!focusKey) return
+    const t = setTimeout(() => {
+      const el = panelRef.current?.querySelector<HTMLElement>(`[data-mission="${spot}"]`)
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+      ;(el ?? panelRef.current)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
+      const target = el ? (el.matches('button') ? el : el.querySelector<HTMLElement>('button')) : panelRef.current
+      target?.focus({ preventScroll: true })
+      el?.classList.add('spotlight')
+      setTimeout(() => el?.classList.remove('spotlight'), 2600)
+    }, 60) // after the tab's content renders
+    return () => clearTimeout(t)
+  }, [focusKey]) // eslint-disable-line react-hooks/exhaustive-deps -- run per prompt click
   const cat = catOf(d.aqi)
   const advice = adviceFor(d.aqi)
   const [persona, setPersona] = useState<Persona>(loadPersona)
@@ -134,7 +145,7 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, onClose, onTrace
             <Briefing district={d.id} onHighlight={onHighlight} />
             <section className="block" aria-labelledby="verdict-h">
               <h2 id="verdict-h">What to do today</h2>
-              <div className="seg" role="radiogroup" aria-label="Who is this for">
+              <div className="seg" role="radiogroup" aria-label="Who is this for" data-mission="orders">
                 {PERSONAS.map((p) => (
                   <button key={p.id} role="radio" aria-checked={persona === p.id} onClick={() => pick(p.id)}>
                     {p.label}

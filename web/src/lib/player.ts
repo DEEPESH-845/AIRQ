@@ -97,17 +97,19 @@ export function checkIn(p: Player, now: number): Step {
   const day = istDay(now)
   if (p.lastDay === day) return [p, null]
   if (p.lastDay && day < p.lastDay) return [p, null] // device clock went backwards
+  if (!p.lastDay) return [{ ...p, lastDay: day, streak: 1 }, null] // first visit: start the streak, no XP
   const streak = p.lastDay === istDay(now - 864e5) ? p.streak + 1 : 1
   return [{ ...p, lastDay: day, streak, xp: p.xp + 5 }, { xp: 5, reason: streak > 1 ? `Day ${streak} check-in` : 'Daily check-in' }]
 }
 
-/** First Defend spend on a district each IST day: completes the mission (30) the first time, then 10. */
+/** First Defend spend: completes the mission (30). After that, one +10 per IST day in total, whichever district. */
 export function defendSpend(p: Player, district: string, now: number): Step {
   const day = istDay(now)
   if (p.defendDays[district] === day) return [p, null]
+  const paidToday = Object.values(p.defendDays).includes(day)
   const q = { ...p, defendDays: { ...p.defendDays, [district]: day } }
   if (!q.missions.includes('defend')) return completeMission(q, 'defend')
-  return [{ ...q, xp: q.xp + 10 }, { xp: 10, reason: 'Daily defense' }]
+  return paidToday ? [q, null] : [{ ...q, xp: q.xp + 10 }, { xp: 10, reason: 'Daily defense' }]
 }
 
 export function addPoints(p: Player, pts: number, reason: string): Step {
@@ -151,8 +153,7 @@ export function getPlayer(): Player {
     } catch {
       /* storage blocked */
     }
-    state = migrate(parse(raw), legacy)
-    persist()
+    state = migrate(parse(raw), legacy) // persisted on the first act(); migrate is idempotent until then
   }
   return state
 }
