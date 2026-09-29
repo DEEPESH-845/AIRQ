@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check": "for f in src/lib/*.check.ts; do echo \"$f\"; tsx \"$f\" || exit 1; done",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "mapshaper": "^0.7.70",
     "oxlint": "^1.81.0",
     "playwright": "^1.63.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }
