@@ -347,3 +347,10 @@ button { font: inherit; color: inherit; }
   .honesty .long { display: none; }
   .honesty .short { display: inline; }
 }
+
+.tabs { display: flex; gap: 4px; margin-top: 18px; border-bottom: 1px solid var(--line); }
+.tabs button { flex: 1; padding: 10px 0; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--haze); font: 600 15px/1 var(--ui); cursor: pointer; }
+.tabs button[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--ember); }
+.tabs button:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+[role='tabpanel']:focus-visible { outline: 2px solid var(--line); outline-offset: 4px; }
+.raid-status { margin: 16px 0 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5383b; color: var(--ink); font-size: 14px; }

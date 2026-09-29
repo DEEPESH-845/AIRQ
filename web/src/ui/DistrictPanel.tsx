@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { District } from '../lib/world'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import type { District, World } from '../lib/world'
 import { CATS, catIndex, catOf } from '../lib/naqi'
 import { PERSONAS, adviceFor, loadPersona, savePersona, type Persona } from '../lib/advice'
 import { ForecastChart } from './ForecastChart'
@@ -9,7 +9,7 @@ import { Duel } from './Duel'
 import { AlertToggle } from './AlertToggle'
 import { Briefing } from './Briefing'
 import { ReportSource } from './ReportSource'
-import { act, completeMission } from '../lib/player'
+import { act, completeMission, type Tab } from '../lib/player'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
@@ -25,7 +25,52 @@ function lidText(d: District) {
   return `The air mixes well over the next 24 hours, which helps clear pollution.`
 }
 
-export function DistrictPanel({ d, generatedAt, onClose, onTrace, onHighlight }: { d: District; generatedAt: string; onClose: () => void; onTrace: () => void; onHighlight: (ids: string[]) => void }) {
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'orders', label: 'Orders' },
+  { id: 'battle', label: 'Battle' },
+  { id: 'play', label: 'Play' },
+]
+
+function Tabs({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const key = (e: KeyboardEvent, i: number) => {
+    const moves: Record<string, number> = { ArrowRight: (i + 1) % 3, ArrowLeft: (i + 2) % 3, Home: 0, End: 2 }
+    const n = moves[e.key]
+    if (n === undefined) return
+    e.preventDefault()
+    onTab(TABS[n].id)
+    refs.current[n]?.focus()
+  }
+  return (
+    <div className="tabs" role="tablist" aria-label="District sections">
+      {TABS.map((t, i) => (
+        <button
+          key={t.id}
+          ref={(el) => {
+            refs.current[i] = el
+          }}
+          role="tab"
+          id={`tab-${t.id}`}
+          aria-selected={tab === t.id}
+          aria-controls={tab === t.id ? `panel-${t.id}` : undefined}
+          tabIndex={tab === t.id ? 0 : -1}
+          onClick={() => onTab(t.id)}
+          onKeyDown={(e) => key(e, i)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function DistrictPanel({ d, world, tab, onTab, focusKey, onClose, onTrace, onHighlight }: { d: District; world: World; tab: Tab; onTab: (t: Tab) => void; focusKey: number; onClose: () => void; onTrace: () => void; onHighlight: (ids: string[]) => void }) {
+  const generatedAt = world.generatedAt
+  const raid = world.raids.find((r) => r.id === d.id)
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focusKey) panelRef.current?.focus()
+  }, [focusKey])
   const cat = catOf(d.aqi)
   const advice = adviceFor(d.aqi)
   const [persona, setPersona] = useState<Persona>(loadPersona)
@@ -80,42 +125,61 @@ export function DistrictPanel({ d, generatedAt, onClose, onTrace, onHighlight }:
         PM2.5 {d.pm25} µg/m³ and PM10 {d.pm10} µg/m³, 24-hour average. Estimated from Copernicus CAMS at {fmtHour(generatedAt)} IST.
       </p>
 
-      <Briefing district={d.id} onHighlight={onHighlight} />
-
-      <section className="block" aria-labelledby="verdict-h">
-        <h2 id="verdict-h">What to do today</h2>
-        <div className="seg" role="radiogroup" aria-label="Who is this for">
-          {PERSONAS.map((p) => (
-            <button key={p.id} role="radio" aria-checked={persona === p.id} onClick={() => pick(p.id)}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <p className="verdict">
-          <b>{advice.verdict}.</b> {advice[persona]}
-        </p>
-        {d.best && (
-          <p className="best">
-            <span>Cleanest window {istDay(d.best.start) === istDay(generatedAt) ? 'today' : 'tomorrow'}</span>
-            <b>
-              {fmtHour(d.best.start)} to {fmtHour(d.best.start, 2)}
-            </b>
-            <small>PM2.5 around {d.best.pm25} µg/m³</small>
-          </p>
+      <Tabs tab={tab} onTab={onTab} />
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={-1} ref={panelRef}>
+        {tab === 'orders' && (
+          <>
+            <Briefing district={d.id} onHighlight={onHighlight} />
+            <section className="block" aria-labelledby="verdict-h">
+              <h2 id="verdict-h">What to do today</h2>
+              <div className="seg" role="radiogroup" aria-label="Who is this for">
+                {PERSONAS.map((p) => (
+                  <button key={p.id} role="radio" aria-checked={persona === p.id} onClick={() => pick(p.id)}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <p className="verdict">
+                <b>{advice.verdict}.</b> {advice[persona]}
+              </p>
+              {d.best && (
+                <p className="best">
+                  <span>Cleanest window {istDay(d.best.start) === istDay(generatedAt) ? 'today' : 'tomorrow'}</span>
+                  <b>
+                    {fmtHour(d.best.start)} to {fmtHour(d.best.start, 2)}
+                  </b>
+                  <small>PM2.5 around {d.best.pm25} µg/m³</small>
+                </p>
+              )}
+              <AlertToggle district={d.id} name={d.n} />
+            </section>
+            <section className="block" aria-labelledby="fc-h">
+              <h2 id="fc-h">Next 48 hours</h2>
+              <ForecastChart fc={d.fc} start={generatedAt} />
+              <p className="lid">{lidText(d)}</p>
+            </section>
+          </>
         )}
-        <AlertToggle district={d.id} name={d.n} />
-      </section>
-
-      <section className="block" aria-labelledby="fc-h">
-        <h2 id="fc-h">Next 48 hours</h2>
-        <ForecastChart fc={d.fc} start={generatedAt} />
-        <p className="lid">{lidText(d)}</p>
-      </section>
-
-      <Attribution d={d} onTrace={onTrace} />
-      <Defend d={d} start={generatedAt} />
-      <Duel d={d} generatedAt={generatedAt} />
-      <ReportSource d={d} />
+        {tab === 'battle' && (
+          <>
+            {raid && (
+              <p className="raid-status">
+                {raid.kind === 'incoming'
+                  ? `Incoming raid: Very Poor air forecast in ${raid.etaH} h${raid.dust ? ' (dust storm)' : ''}.`
+                  : `Raid now: air here has crossed into Very Poor${raid.dust ? ' (dust storm)' : ''}.`}
+              </p>
+            )}
+            <Attribution d={d} onTrace={onTrace} />
+            <ReportSource d={d} />
+          </>
+        )}
+        {tab === 'play' && (
+          <>
+            <Defend d={d} start={generatedAt} />
+            <Duel d={d} generatedAt={generatedAt} />
+          </>
+        )}
+      </div>
     </aside>
   )
 }

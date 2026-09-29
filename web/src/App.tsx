@@ -9,7 +9,7 @@ import { GeneralChat } from './ui/GeneralChat'
 import { Boundary } from './ui/Boundary'
 import { settle, bandName, type Result } from './lib/game'
 import { Hud } from './ui/Hud'
-import { act, addPoints, checkIn, completeMission, type MissionId } from './lib/player'
+import { MISSIONS, act, addPoints, checkIn, completeMission, type MissionId, type Tab } from './lib/player'
 import { defaultDistrict } from './lib/story'
 
 export default function App() {
@@ -53,11 +53,18 @@ export default function App() {
   const [tracing, setTracing] = useState(false)
   const [side, setSide] = useState<'readout' | 'rankings' | 'general'>('readout')
   const [highlight, setHighlight] = useState<string[]>([])
+  const [tab, setTab] = useState<Tab>('orders')
+  const [focusKey, setFocusKey] = useState(0)
   useEffect(() => setTracing(false), [selectedId])
   const goMission = (id: MissionId) => {
     if (!world) return
     if (id === 'general') return setSide('general')
     setSelectedId((cur) => cur ?? defaultDistrict(world).id)
+    const m = MISSIONS.find((x) => x.id === id)
+    if (m?.tab) {
+      setTab(m.tab)
+      setFocusKey((k) => k + 1)
+    }
   }
   const startTrace = () => {
     setTracing(true)
@@ -103,7 +110,7 @@ export default function App() {
       )}
       {selected && (
         <Boundary key={selected.id}>
-        <DistrictPanel d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={startTrace} onHighlight={setHighlight} />
+        <DistrictPanel d={selected} world={world} tab={tab} onTab={setTab} focusKey={focusKey} onClose={() => setSelectedId(null)} onTrace={startTrace} onHighlight={setHighlight} />
         </Boundary>
       )}
     </main>
