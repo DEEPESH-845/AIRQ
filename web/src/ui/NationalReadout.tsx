@@ -1,5 +1,6 @@
 import type { World } from '../lib/world'
 import { CATS, catIndex } from '../lib/naqi'
+import { frontTrend } from '../lib/story'
 
 /** Bottom-left instrument: how India's districts split across the NAQI bands, doubling as the legend. */
 export function NationalReadout({ world, onSelect, onRankings }: { world: World; onSelect: (id: string) => void; onRankings: () => void }) {
@@ -8,9 +9,14 @@ export function NationalReadout({ world, onSelect, onRankings }: { world: World;
   const total = world.districts.length
   const poorPlus = counts.slice(3).reduce((a, b) => a + b, 0)
   const worst = [...world.districts].sort((a, b) => b.aqi - a.aqi).slice(0, 3)
+  const { delta } = frontTrend(world.districts)
+  const trend = delta > 0 ? `▲ ${delta} more than yesterday` : delta < 0 ? `▼ ${-delta} fewer than yesterday` : 'Same as yesterday'
 
   return (
     <section className="readout" aria-label="India right now">
+      <p className="front">
+        Smoke Season front line <small data-trend={delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'}>{trend}</small>
+      </p>
       <p className="readout-line">
         <span className="big">{poorPlus}</span>
         <span>
@@ -38,6 +44,16 @@ export function NationalReadout({ world, onSelect, onRankings }: { world: World;
           </button>
         ))}
       </div>
+      {world.raids.length > 0 && (
+        <div className="worst raids-list">{/* .worst styles; .raids-list keeps it visible on mobile */}
+          <span className="worst-label">Raids</span>
+          {world.raids.slice(0, 3).map((r) => (
+            <button key={r.id} onClick={() => onSelect(r.id)} style={{ ['--c' as string]: CATS[4].color }}>
+              {r.n} <b>{r.kind === 'incoming' ? `${r.etaH} h` : 'now'}</b>
+            </button>
+          ))}
+        </div>
+      )}
       <button className="to-rankings" onClick={onRankings}>
         See all rankings
       </button>

@@ -1,6 +1,6 @@
 // Self-check for briefing picks. Run: npx tsx src/lib/story.check.ts
 import assert from 'node:assert/strict'
-import { defaultDistrict, nearIndia, nearestDistrict, pickStory, poorPlus, worst } from './story'
+import { defaultDistrict, frontTrend, nearIndia, nearestDistrict, pickStory, poorPlus, worst } from './story'
 import type { Cluster, District, World } from './world'
 
 const att = (fire: number) => ({ fire, vehicles: 0.2, dust: 0.2, industry: 0.1, household: 0.1, regional: 0.4 - fire })
@@ -37,4 +37,9 @@ assert.equal(defaultDistrict(W(clean, [{ id: 'gone', n: 'g', s: 'S', aqi: 400, k
 assert.equal(nearestDistrict([jind, haora], 76.0, 29.0).id, 'jind')
 assert.ok(nearIndia([jind, haora], [76.0, 29.6]))
 assert.ok(!nearIndia([jind, haora], [61, 37]))
+// Smoke Season front line: Poor-or-worse today vs 24 h earlier (aqiPrev)
+const P = (aqi: number, aqiPrev: number) => ({ aqi, aqiPrev }) as unknown as District
+assert.deepEqual(frontTrend([P(250, 150), P(220, 230), P(90, 260)]), { now: 2, delta: 0 })
+assert.deepEqual(frontTrend([P(250, 150), P(220, 100)]), { now: 2, delta: 2 })
+assert.deepEqual(frontTrend([P(150, 250)]), { now: 0, delta: -1 })
 console.log('ok')

@@ -28,3 +28,9 @@ export function defaultDistrict(w: World): District {
   const r = w.raids[0]
   return (r && w.districts.find((d) => d.id === r.id)) || worst(w.districts)
 }
+
+/** Smoke Season front line: districts at Poor or worse now, and the change from 24 h earlier. */
+export function frontTrend(ds: District[]) {
+  const now = poorPlus(ds)
+  return { now, delta: now - ds.filter((d) => d.aqiPrev > 200).length }
+}

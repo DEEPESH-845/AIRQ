@@ -409,3 +409,9 @@ button { font: inherit; color: inherit; }
 .aw-scroll { overflow-x: auto; }
 .aw-scroll:focus-visible { outline: 2px solid var(--line); }
 @media (max-width: 760px) { .how svg { min-width: 640px; } }
+
+.front { margin: 0 0 8px; font: 700 13px/1.2 var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ember); }
+.front small { margin-left: 8px; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--haze); }
+.front small[data-trend='up'] { color: #f28c28; }
+.front small[data-trend='down'] { color: #2fbf71; }
+@media (max-width: 759px) { .readout .raids-list { display: flex; } }
