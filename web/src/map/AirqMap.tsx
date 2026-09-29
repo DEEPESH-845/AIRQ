@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { District, World } from '../lib/world'
 import { CATS, catOf } from '../lib/naqi'
 import { startParticles } from './particles'
+import { raidLevels } from '../lib/story'
 
 setWorkerUrl(workerUrl)
 
@@ -36,6 +37,14 @@ function trajGradient(p: number) {
 
 const empty = { type: 'FeatureCollection' as const, features: [] }
 
+// Smog front: raided districts (feature-state raid: 2 = now, 1 = within 24 h) get a breathing haze
+// (now only) and a dashed border that marches like a weather-front marking. District-shaped, no circles.
+const raid = ['coalesce', ['feature-state', 'raid'], 0]
+const HAZE = '#f3e4cf' // pale smoke over the band colour
+const hazeOpacity = (v: number) => ['case', ['==', raid, 2], v, 0]
+// dash phases for a marching line (MapLibre can't animate dash offset, so step through equivalent patterns)
+const MARCH = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]]
+
 const STYLE: StyleSpecification = {
   version: 8,
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
@@ -44,7 +53,6 @@ const STYLE: StyleSpecification = {
     states: { type: 'geojson', data: '/geo/states.geojson' },
     districts: { type: 'geojson', data: '/geo/districts.geojson', promoteId: 'id' },
     fires: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-    raids: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     labels: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     traj: { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } },
     trajpts: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
@@ -69,6 +77,7 @@ const STYLE: StyleSpecification = {
         ],
       },
     },
+    { id: 'raid-haze', type: 'fill', source: 'districts', paint: { 'fill-color': HAZE, 'fill-opacity': hazeOpacity(0.24) as never } },
     {
       id: 'district-lines',
       type: 'line',
@@ -98,10 +107,29 @@ const STYLE: StyleSpecification = {
       },
     },
     {
-      id: 'raids-ring',
-      type: 'circle',
-      source: 'raids',
-      paint: { 'circle-radius': 12, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': CATS[4].color, 'circle-stroke-width': 2.5 },
+      id: 'raid-front-glow',
+      type: 'line',
+      source: 'districts',
+      layout: { 'line-join': 'round' },
+      paint: {
+        'line-color': ['case', ['==', raid, 2], '#ffd9b0', '#ff9a4d'] as never,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 5, 8, 10],
+        'line-blur': ['interpolate', ['linear'], ['zoom'], 4, 4, 8, 8],
+        // at country zoom the glow carries the shape; dashes take over as you zoom in
+        'line-opacity': ['interpolate', ['linear'], ['zoom'], 4, ['case', ['>', raid, 0], 0.5, 0], 7, ['case', ['>', raid, 0], 0.3, 0]] as never,
+      },
+    },
+    {
+      id: 'raid-front',
+      type: 'line',
+      source: 'districts',
+      layout: { 'line-join': 'round' },
+      paint: {
+        'line-color': ['case', ['==', raid, 2], '#fff1e0', '#ffb36b'] as never,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.4, 8, 2.6],
+        'line-opacity': ['interpolate', ['linear'], ['zoom'], 4, ['case', ['>', raid, 0], 0.35, 0], 6, ['case', ['>', raid, 0], 0.95, 0]] as never,
+        'line-dasharray': [2, 2],
+      },
     },
     {
       id: 'hl-line',
@@ -228,7 +256,8 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
-    for (const d of world.districts) map.setFeatureState({ source: 'districts', id: d.id }, { aqi: d.aqi })
+    const levels = raidLevels(world.raids)
+    for (const d of world.districts) map.setFeatureState({ source: 'districts', id: d.id }, { aqi: d.aqi, raid: levels[d.id] ?? 0 })
     ;(map.getSource('fires') as GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: world.fires.filter((f) => f[3] <= 24).map(([lon, lat, frp, age]) => ({
@@ -236,13 +265,6 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
         geometry: { type: 'Point', coordinates: [lon, lat] },
         properties: { frp, age },
       })),
-    })
-    ;(map.getSource('raids') as GeoJSONSource).setData({
-      type: 'FeatureCollection',
-      features: world.raids.flatMap((r) => {
-        const d = byId.current.get(r.id)
-        return d ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: d.c }, properties: { id: r.id } }] : []
-      }),
     })
     ;(map.getSource('labels') as GeoJSONSource).setData({
       type: 'FeatureCollection',
@@ -255,17 +277,35 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     return startParticles(map, canvas.current!, world)
   }, [world, ready])
 
-  // raid rings pulse (static when the user prefers reduced motion)
+  // smog front: the haze breathes (~4.2 s) and the border marches (~1.5 s per cycle).
+  // Holds still under prefers-reduced-motion, including when that changes mid-visit.
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !ready || !world.raids.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!map || !ready || !world.raids.length) return
+    const mq = matchMedia('(prefers-reduced-motion: reduce)')
     let raf = 0
+    let step = -1
+    const still = () => {
+      map.setPaintProperty('raid-haze', 'fill-opacity', hazeOpacity(0.24) as never)
+      map.setPaintProperty('raid-front', 'line-dasharray', [2, 2])
+    }
     const frame = (t: number) => {
-      map.setPaintProperty('raids-ring', 'circle-radius', 12 + 5 * Math.sin(t / 320))
+      map.setPaintProperty('raid-haze', 'fill-opacity', hazeOpacity(0.16 + 0.16 * (0.5 + 0.5 * Math.sin((t / 4200) * 2 * Math.PI))) as never)
+      const s = Math.floor(t / 110) % MARCH.length
+      if (s !== step) map.setPaintProperty('raid-front', 'line-dasharray', MARCH[(step = s)])
       raf = requestAnimationFrame(frame)
     }
-    raf = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(raf)
+    const apply = () => {
+      cancelAnimationFrame(raf)
+      if (mq.matches) still()
+      else raf = requestAnimationFrame(frame)
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => {
+      cancelAnimationFrame(raf)
+      mq.removeEventListener('change', apply)
+    }
   }, [world, ready])
 
   // selection: outline + camera

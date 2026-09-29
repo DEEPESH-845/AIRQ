@@ -23,8 +23,12 @@ export function MapKey({ open, onToggle }: { open: boolean; onToggle: (open: boo
           Orange dots: fires in the last 24 h (NASA FIRMS)
         </li>
         <li>
-          <span className="mk-ring" aria-hidden="true" />
-          Pulsing ring: raid, Very Poor air now or within 24 h
+          <span className="mk-front now" aria-hidden="true" />
+          Hazed, marching border: raid now (Very Poor or worse)
+        </li>
+        <li>
+          <span className="mk-front" aria-hidden="true" />
+          Marching border only: raid expected within 24 h
         </li>
       </ul>
     </details>
