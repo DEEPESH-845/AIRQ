@@ -9,6 +9,7 @@ import { Duel } from './Duel'
 import { AlertToggle } from './AlertToggle'
 import { Briefing } from './Briefing'
 import { ReportSource } from './ReportSource'
+import { act, completeMission } from '../lib/player'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
@@ -31,6 +32,7 @@ export function DistrictPanel({ d, generatedAt, onClose, onTrace, onHighlight }:
   const pick = (p: Persona) => {
     setPersona(p)
     savePersona(p)
+    act((x) => completeMission(x, 'orders'))
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { District } from '../lib/world'
 import { askGeneral } from '../lib/general'
+import { act, completeMission } from '../lib/player'
 
 type Msg = { who: 'you' | 'general'; text: string; error?: boolean }
 
@@ -31,6 +32,7 @@ export function GeneralChat({ selected, onHighlight, onClose }: { selected: Dist
       const r = await askGeneral({ q: t, d: selected?.id })
       setMsgs((m) => [...m, { who: 'general', text: r.text }])
       onHighlight(r.highlight)
+      act((p) => completeMission(p, 'general')) // only on a real answer; a 429 lands in catch
     } catch (e) {
       setMsgs((m) => [...m, { who: 'general', text: (e as Error).message, error: true }])
     } finally {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { disableAlerts, enableAlerts, pushSupported, watching } from '../lib/push'
+import { act, completeMission } from '../lib/player'
 
 const COPY = {
   off: 'Warn me before smog reaches here',
@@ -21,7 +22,9 @@ export function AlertToggle({ district, name }: { district: string; name: string
       return
     }
     setState('busy')
-    setState(await enableAlerts(district))
+    const res = await enableAlerts(district)
+    setState(res)
+    if (res === 'on') act((p) => completeMission(p, 'alert'))
   }
 
   return (

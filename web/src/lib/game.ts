@@ -99,14 +99,6 @@ export function settle(districts: District[], generatedAt: string): Result[] {
     return false
   })
   save(left)
-  if (done.length) {
-    try {
-      const prev = Number(localStorage.getItem('airq.points') ?? 0)
-      localStorage.setItem('airq.points', String(prev + done.reduce((a, r) => a + r.points, 0)))
-    } catch {
-      /* ignore */
-    }
-  }
   return done
 }
 export const bandName = (i: number) => CATS[i].name

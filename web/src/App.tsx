@@ -8,6 +8,9 @@ import { Rankings } from './ui/Rankings'
 import { GeneralChat } from './ui/GeneralChat'
 import { Boundary } from './ui/Boundary'
 import { settle, bandName, type Result } from './lib/game'
+import { Hud } from './ui/Hud'
+import { act, addPoints, checkIn, completeMission, type MissionId } from './lib/player'
+import { defaultDistrict } from './lib/story'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -22,12 +25,22 @@ export default function App() {
     }, (e) => setError(String(e.message ?? e)))
   }, [])
 
+  useEffect(() => {
+    if (!world) return
+    act((p) => checkIn(p, Date.now()))
+    act((p) => addPoints(p, results.reduce((a, x) => a + x.points, 0), 'Forecast Duel results'))
+  }, [world]) // eslint-disable-line react-hooks/exhaustive-deps -- once per loaded world; results arrive with it
+
   // deep link: ?d=<district id>
   useEffect(() => {
     const url = new URL(location.href)
     if (selectedId) url.searchParams.set('d', selectedId)
     else url.searchParams.delete('d')
     history.replaceState(null, '', url)
+  }, [selectedId])
+
+  useEffect(() => {
+    if (selectedId) act((p) => completeMission(p, 'command'))
   }, [selectedId])
 
   useEffect(() => {
@@ -41,6 +54,15 @@ export default function App() {
   const [side, setSide] = useState<'readout' | 'rankings' | 'general'>('readout')
   const [highlight, setHighlight] = useState<string[]>([])
   useEffect(() => setTracing(false), [selectedId])
+  const goMission = (id: MissionId) => {
+    if (!world) return
+    if (id === 'general') return setSide('general')
+    setSelectedId((cur) => cur ?? defaultDistrict(world).id)
+  }
+  const startTrace = () => {
+    setTracing(true)
+    act((p) => completeMission(p, 'trace'))
+  }
 
   if (error)
     return (
@@ -54,6 +76,7 @@ export default function App() {
     <main className="app">
       <AirqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} highlight={highlight} />
       <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')} />
+      <Hud onMission={goMission} />
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={setSelectedId} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
@@ -71,7 +94,7 @@ export default function App() {
         <div className="toast" role="status">
           {results.map((r) => (
             <p key={r.district}>
-              {r.name}: you called {bandName(r.band)}, it came in at {r.actual} ({bandName(r.actualBand)}). <b>+{r.points} points</b>
+              {r.name}: you called {bandName(r.band)}, it came in at {r.actual} ({bandName(r.actualBand)}). <b>+{r.points} XP</b>
             </p>
           ))}
           <button onClick={() => setResults([])}>Got it</button>
@@ -79,7 +102,7 @@ export default function App() {
       )}
       {selected && (
         <Boundary key={selected.id}>
-        <DistrictPanel d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={() => setTracing(true)} onHighlight={setHighlight} />
+        <DistrictPanel d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={startTrace} onHighlight={setHighlight} />
         </Boundary>
       )}
     </main>

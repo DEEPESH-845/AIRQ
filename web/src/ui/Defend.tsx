@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { District } from '../lib/world'
 import { BUDGET, DEFENSES, aqiToPm25, cigarettes, planSeries } from '../lib/game'
 import { ForecastChart } from './ForecastChart'
+import { act, defendSpend } from '../lib/player'
 
 const peakNext24 = (s: number[]) => Math.max(...s.slice(0, 25))
 const cigs = (s: number[]) => cigarettes(s.slice(0, 24).reduce((a, v) => a + aqiToPm25(v), 0) / 24)
@@ -21,7 +22,9 @@ export function Defend({ d, start }: { d: District; start: string }) {
 
   const toggle = (id: string, cost: number) => {
     setLast(id)
+    const adding = !active.includes(id) && spent + cost <= BUDGET
     setActive((a) => (a.includes(id) ? a.filter((x) => x !== id) : spent + cost <= BUDGET ? [...a, id] : a))
+    if (adding) act((p) => defendSpend(p, d.id, Date.now()))
   }
   const before = { peak: peakNext24(d.fc), cigs: cigs(d.fc) }
   const after = { peak: peakNext24(plan), cigs: cigs(plan) }
