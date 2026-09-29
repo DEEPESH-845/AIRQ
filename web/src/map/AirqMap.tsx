@@ -152,7 +152,7 @@ type Props = {
   highlight: string[]
 }
 
-export function ArqMap({ world, selected, onSelect, panelOpen, trace, highlight }: Props) {
+export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const tip = useRef<HTMLDivElement>(null)

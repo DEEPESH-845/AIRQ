@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loadWorld, type World } from './lib/world'
-import { ArqMap } from './map/ArqMap'
+import { AirqMap } from './map/AirqMap'
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
@@ -45,14 +45,14 @@ export default function App() {
   if (error)
     return (
       <main className="fallback">
-        <p>ARQ couldn't load today's air data ({error}). Refresh to try again.</p>
+        <p>AIRQ couldn't load today's air data ({error}). Refresh to try again.</p>
       </main>
     )
   if (!world) return <main className="fallback" aria-busy="true" />
 
   return (
     <main className="app">
-      <ArqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} highlight={highlight} />
+      <AirqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} highlight={highlight} />
       <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')} />
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={setSelectedId} onClose={() => setSide('readout')} />}

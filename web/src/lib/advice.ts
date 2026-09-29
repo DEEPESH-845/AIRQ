@@ -20,7 +20,7 @@ export const MATRIX: Row[] = matrix
 
 export const adviceFor = (aqi: number) => MATRIX[catIndex(aqi)]
 
-const KEY = 'arq.persona'
+const KEY = 'airq.persona'
 export function loadPersona(): Persona {
   try {
     const v = localStorage.getItem(KEY) as Persona | null

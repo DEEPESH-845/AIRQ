@@ -43,7 +43,7 @@ export function GeneralChat({ selected, onHighlight, onClose }: { selected: Dist
       <header className="panel-head">
         <div>
           <h1>Ask the General</h1>
-          <p>Live answers from ARQ's data. Health advice comes from CPCB guidance.</p>
+          <p>Live answers from AIRQ's data. Health advice comes from CPCB guidance.</p>
         </div>
         <button className="icon-btn" onClick={onClose} aria-label="Close the General">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">

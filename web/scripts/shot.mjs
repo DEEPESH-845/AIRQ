@@ -1,4 +1,4 @@
-// Checkpoint verifier: loads ARQ, fails on console errors, saves screenshots.
+// Checkpoint verifier: loads AIRQ, fails on console errors, saves screenshots.
 // Usage: node scripts/shot.mjs <name> [path] [--mobile] [--click=<selector>]...
 import { chromium } from 'playwright'
 const [name = 'home', path = '/', ...flags] = process.argv.slice(2)
@@ -14,7 +14,7 @@ for (const f of flags.filter((f) => f.startsWith('--click='))) {
   await page.click(f.slice(8))
   await page.waitForTimeout(2200)
 }
-const out = `/tmp/arq-shots/${name}${mobile ? '-m' : ''}.png`
+const out = `/tmp/airq-shots/${name}${mobile ? '-m' : ''}.png`
 await page.screenshot({ path: out })
 console.log(out)
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console errors')

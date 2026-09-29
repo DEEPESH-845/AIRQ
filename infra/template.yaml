@@ -1,9 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  ARQ - India's air, live. WorldTick (EventBridge Scheduler -> Step Functions -> Lambda) rebuilds
+  AIRQ - India's air, live. WorldTick (EventBridge Scheduler -> Step Functions -> Lambda) rebuilds
   world.json from CAMS, Open-Meteo wind and NASA FIRMS; S3 + CloudFront serve the app; smog raids
   fan out through EventBridge to SNS.
+  Physical names stay arq-* from before the AIRQ rename; changing them would replace live resources.
 
 Parameters:
   AlertEmail:
@@ -80,7 +81,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: ARQ web app
+        Comment: AIRQ web app
         DefaultRootObject: index.html
         HttpVersion: http2and3
         PriceClass: PriceClass_200 # includes edge locations in India
@@ -138,9 +139,9 @@ Resources:
       Timeout: 900
       Environment:
         Variables:
-          ARQ_BUCKET: !Ref SiteBucket
-          ARQ_GEO: /var/task/geo
-          ARQ_CACHE: /tmp/cache
+          AIRQ_BUCKET: !Ref SiteBucket
+          AIRQ_GEO: /var/task/geo
+          AIRQ_CACHE: /tmp/cache
       Policies:
         - S3CrudPolicy: { BucketName: !Ref SiteBucket }
 
@@ -210,7 +211,7 @@ Resources:
                   Resource: arn:aws:states:::events:putEvents
                   Parameters:
                     Entries:
-                      - Source: arq.world
+                      - Source: airq.world
                         DetailType: SmogRaid
                         Detail.$: $
                   End: true
@@ -242,7 +243,7 @@ Resources:
       Name: arq-smog-raid
       Description: Every SmogRaid from WorldTick goes to the raid topic (web push subscribers hang off it)
       EventPattern:
-        source: [arq.world]
+        source: [airq.world]
         detail-type: [SmogRaid]
       Targets:
         - Id: raid-topic
@@ -315,7 +316,7 @@ Resources:
       Timeout: 29 # API Gateway HTTP APIs cap integrations at 30 s
       Environment:
         Variables:
-          ARQ_BUCKET: !Ref SiteBucket
+          AIRQ_BUCKET: !Ref SiteBucket
           QUOTA_TABLE: !Ref GeneralQuota
           MODEL_ID: us.amazon.nova-micro-v1:0 # cheapest Bedrock model that handles the tool calls; no Marketplace subscription
           DAILY_QUESTIONS: '10'

@@ -27,7 +27,7 @@ export function TopBar({ world, onSelect, onGeneral }: { world: World; onSelect:
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="wordmark">ARQ</span>
+        <span className="wordmark">AIRQ</span>
         <span className="status" data-stale={stale}>
           <span className="pulse" aria-hidden="true" />
           {stale ? 'Some feeds delayed' : 'Live'}, updated {istTime(world.generatedAt)} IST

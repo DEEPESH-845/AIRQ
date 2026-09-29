@@ -1,6 +1,6 @@
-// ARQ service worker: shows smog-raid pushes and opens the district when tapped.
+// AIRQ service worker: shows smog-raid pushes and opens the district when tapped.
 self.addEventListener('push', (event) => {
-  let data = { title: 'ARQ', body: 'Air quality update', url: '/' }
+  let data = { title: 'AIRQ', body: 'Air quality update', url: '/' }
   try {
     data = { ...data, ...event.data.json() }
   } catch {

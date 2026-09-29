@@ -59,7 +59,7 @@ export function planSeries(d: District, active: string[]) {
 
 // ---------- Forecast Duel: call tomorrow's band, the AI calls it too, reality settles it
 export type Call = { district: string; name: string; band: number; ai: number; resolveAt: string; placed: string }
-const KEY = 'arq.calls'
+const KEY = 'airq.calls'
 const load = (): Call[] => {
   try {
     return JSON.parse(localStorage.getItem(KEY) ?? '[]')
@@ -101,8 +101,8 @@ export function settle(districts: District[], generatedAt: string): Result[] {
   save(left)
   if (done.length) {
     try {
-      const prev = Number(localStorage.getItem('arq.points') ?? 0)
-      localStorage.setItem('arq.points', String(prev + done.reduce((a, r) => a + r.points, 0)))
+      const prev = Number(localStorage.getItem('airq.points') ?? 0)
+      localStorage.setItem('airq.points', String(prev + done.reduce((a, r) => a + r.points, 0)))
     } catch {
       /* ignore */
     }

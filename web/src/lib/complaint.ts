@@ -28,7 +28,7 @@ export function complaintText(d: District, c: Complaint) {
     `Air pollution complaint: ${c.type.toLowerCase()}`,
     `Location: ${c.where || 'not specified'}, ${d.n}, ${d.s}${mapLink(c.coords)}`,
     `Seen: ${stamp(c.when)} IST`,
-    `District air quality now: AQI ${d.aqi} (${d.cat}), PM2.5 ${d.pm25} µg/m³ (ARQ, estimated from Copernicus CAMS).`,
+    `District air quality now: AQI ${d.aqi} (${d.cat}), PM2.5 ${d.pm25} µg/m³ (AIRQ, estimated from Copernicus CAMS).`,
     `Please inspect and stop this source.`,
   ].join('\n')
 }

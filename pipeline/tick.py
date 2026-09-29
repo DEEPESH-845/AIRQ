@@ -1,4 +1,4 @@
-"""ARQ world tick: pull live feeds, fuse them, write world.json.
+"""AIRQ world tick: pull live feeds, fuse them, write world.json.
 
 Runs locally (`python3 pipeline/tick.py`) or as the WorldTick Lambda (`handler`).
 Stdlib only, so the Lambda needs no layers.
@@ -12,12 +12,12 @@ import csv, gzip, io, json, math, os, time, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GEO = os.environ.get('ARQ_GEO', os.path.join(ROOT, 'web', 'public', 'geo'))
-BUCKET = os.environ.get('ARQ_BUCKET')  # set in Lambda: world.json, archive and feed cache live in S3
+GEO = os.environ.get('AIRQ_GEO', os.path.join(ROOT, 'web', 'public', 'geo'))
+BUCKET = os.environ.get('AIRQ_BUCKET')  # set in Lambda: world.json, archive and feed cache live in S3
 RAID_AQI = 300  # 'Very Poor' and above counts as a smog raid
-CACHE = os.environ.get('ARQ_CACHE', os.path.join(ROOT, 'data', 'cache'))
-OUT = os.environ.get('ARQ_OUT', os.path.join(ROOT, 'web', 'public', 'data', 'world.json'))
-ARCHIVE = os.environ.get('ARQ_ARCHIVE', os.path.join(ROOT, 'data', 'archive'))
+CACHE = os.environ.get('AIRQ_CACHE', os.path.join(ROOT, 'data', 'cache'))
+OUT = os.environ.get('AIRQ_OUT', os.path.join(ROOT, 'web', 'public', 'data', 'world.json'))
+ARCHIVE = os.environ.get('AIRQ_ARCHIVE', os.path.join(ROOT, 'data', 'archive'))
 IST = timezone(timedelta(hours=5, minutes=30))
 
 # Wind grid over India + upwind Pakistan / Afghanistan border
@@ -50,7 +50,7 @@ def category(aqi):
 def get(url, tries=4):
     for i in range(tries):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'arq-tick/1.0'}), timeout=90) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'airq-tick/1.0'}), timeout=90) as r:
                 return r.read()
         except Exception as e:
             if i == tries - 1:
@@ -88,7 +88,7 @@ def cached(name, fetch, sources, label, url):
     return data
 
 
-PACE_S = float(os.environ.get('ARQ_PACE_S', 12))  # 100 locations per 12 s keeps us under 600 calls/min
+PACE_S = float(os.environ.get('AIRQ_PACE_S', 12))  # 100 locations per 12 s keeps us under 600 calls/min
 
 
 def open_meteo(base, lats, lons, params, chunk=100):

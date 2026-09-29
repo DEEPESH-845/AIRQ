@@ -1,4 +1,4 @@
-"""The General: ARQ's in-game advisor (Strands Agents on Amazon Bedrock).
+"""The General: AIRQ's in-game advisor (Strands Agents on Amazon Bedrock).
 
 POST /api/general {"d": "<district id>"}              -> morning briefing (cached per world tick)
 POST /api/general {"d": "<id>"?, "q": "<question>"}    -> answer, plus district ids to highlight on the map
@@ -13,7 +13,7 @@ import boto3
 from strands import Agent, tool
 from strands.models import BedrockModel
 
-BUCKET = os.environ.get('ARQ_BUCKET')
+BUCKET = os.environ.get('AIRQ_BUCKET')
 QUOTA_TABLE = os.environ.get('QUOTA_TABLE')
 # Amazon Nova Micro: the cheapest Bedrock model that handles these tool calls well (first-party, no Marketplace subscription).
 MODEL_ID = os.environ.get('MODEL_ID', 'us.amazon.nova-micro-v1:0')
@@ -150,7 +150,7 @@ def health_guidance(aqi: int, persona: str) -> dict:
 
 TOOLS = [district_status, rank_districts, fires_near]  # health guidance is attached by code, never written by the model
 
-SYSTEM = """You are the General, the advisor inside ARQ, a live map of India's air quality framed as a strategy game.
+SYSTEM = """You are the General, the advisor inside AIRQ, a live map of India's air quality framed as a strategy game.
 Pollution is the enemy; players defend their district. Speak like a calm, sharp field commander: brief, concrete, a little dramatic,
 never alarmist. Plain English a 17-year-old understands.
 

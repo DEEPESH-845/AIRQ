@@ -3,7 +3,7 @@
 # Usage: infra/deploy.sh [alert-email]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-STACK=arq
+STACK=arq  # deployed before the AIRQ rename; stack and resource names stay arq-* (renaming would replace them)
 REGION=${AWS_REGION:-$(aws configure get region || echo us-east-1)}
 
 echo "== staging tick Lambda"

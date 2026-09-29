@@ -1,6 +1,6 @@
 // Web Push: subscribe this browser to smog-raid alerts for one or more districts.
 const KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
-const LIST = 'arq.alerts'
+const LIST = 'airq.alerts'
 
 export const pushSupported = () => !!KEY && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 

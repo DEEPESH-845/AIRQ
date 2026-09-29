@@ -1,4 +1,4 @@
-// ARQ web push: one function, two jobs.
+// AIRQ web push: one function, two jobs.
 //  - HTTP (API Gateway, via CloudFront /api/*): subscribe / unsubscribe a browser to a district
 //  - SNS (arq-smog-raids): send a push to every browser watching the raided district
 import { createHash } from 'node:crypto'
@@ -48,7 +48,7 @@ async function http(event) {
   await db.send(new PutCommand({ TableName: TABLE, Item: { ...key, sub: p.sub, ttl } }))
   // a welcome push proves the pipe works end to end
   await webpush
-    .sendNotification(p.sub, JSON.stringify({ title: 'ARQ alerts are on', body: 'We will warn you before smog reaches this district.', url: `/?d=${p.d}` }))
+    .sendNotification(p.sub, JSON.stringify({ title: 'AIRQ alerts are on', body: 'We will warn you before smog reaches this district.', url: `/?d=${p.d}` }))
     .catch(() => {})
   return res(200, { ok: true })
 }

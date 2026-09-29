@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ArqServices",
+      "Sid": "AirqServices",
       "Effect": "Allow",
       "Action": [
         "cloudformation:*",
@@ -33,7 +33,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "ArqRolesOnly",
+      "Sid": "AirqRolesOnly",
       "Effect": "Allow",
       "Action": [
         "iam:CreateRole",
