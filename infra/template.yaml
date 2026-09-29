@@ -327,6 +327,7 @@ Resources:
               Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
               Resource:
                 - arn:aws:bedrock:*::foundation-model/anthropic.*
+                - arn:aws:bedrock:*::foundation-model/amazon.nova-*
                 - !Sub arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*
       Events:
         Ask:
