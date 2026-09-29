@@ -9,7 +9,7 @@ Parameters:
   AlertEmail:
     Type: String
     Default: ''
-    Description: Optional email for budget alerts ($5 forecast, $20 actual). Leave empty to skip.
+    Description: Optional email for budget alerts (monthly budget of $15). Leave empty to skip.
 
 Conditions:
   HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
@@ -240,11 +240,11 @@ Resources:
         BudgetName: arq-monthly
         BudgetType: COST
         TimeUnit: MONTHLY
-        BudgetLimit: { Amount: 20, Unit: USD }
+        BudgetLimit: { Amount: 15, Unit: USD }
       NotificationsWithSubscribers:
-        - Notification: { NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 25 }
+        - Notification: { NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100 }
           Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref AlertEmail }]
-        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100 }
+        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80 }
           Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref AlertEmail }]
 
 Outputs:
