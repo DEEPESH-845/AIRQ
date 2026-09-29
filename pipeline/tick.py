@@ -12,7 +12,9 @@ import csv, gzip, io, json, math, os, time, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GEO = os.path.join(ROOT, 'web', 'public', 'geo')
+GEO = os.environ.get('ARQ_GEO', os.path.join(ROOT, 'web', 'public', 'geo'))
+BUCKET = os.environ.get('ARQ_BUCKET')  # set in Lambda: world.json, archive and feed cache live in S3
+RAID_AQI = 300  # 'Very Poor' and above counts as a smog raid
 CACHE = os.environ.get('ARQ_CACHE', os.path.join(ROOT, 'data', 'cache'))
 OUT = os.environ.get('ARQ_OUT', os.path.join(ROOT, 'web', 'public', 'data', 'world.json'))
 ARCHIVE = os.environ.get('ARQ_ARCHIVE', os.path.join(ROOT, 'data', 'archive'))
@@ -56,19 +58,31 @@ def get(url, tries=3):
             time.sleep(3 * (i + 1))
 
 
+def s3():
+    import boto3  # available in the Lambda runtime; not needed locally
+    return boto3.client('s3')
+
+
 def cached(name, fetch, sources, label, url):
     """Fetch fresh; on failure fall back to the last good copy so a flaky feed never breaks the world."""
     path = os.path.join(CACHE, name)
     try:
         data = fetch()
-        os.makedirs(CACHE, exist_ok=True)
-        with open(path, 'w') as f:
-            json.dump(data, f)
+        body = json.dumps(data)
+        if BUCKET:
+            s3().put_object(Bucket=BUCKET, Key=f'cache/{name}', Body=body.encode(), ContentType='application/json')
+        else:
+            os.makedirs(CACHE, exist_ok=True)
+            with open(path, 'w') as f:
+                f.write(body)
         sources.append({'name': label, 'url': url, 'stale': False})
     except Exception as e:
-        print(f'[warn] {label} failed ({e}); using cached copy')
-        with open(path) as f:
-            data = json.load(f)
+        print(f'[warn] {label} failed ({e}); using last good copy')
+        if BUCKET:
+            data = json.loads(s3().get_object(Bucket=BUCKET, Key=f'cache/{name}')['Body'].read())
+        else:
+            with open(path) as f:
+                data = json.load(f)
         sources.append({'name': label, 'url': url, 'stale': True})
     return data
 
@@ -169,7 +183,7 @@ def is_ncr(state, name):
     return state in NCR and (names is None or name in names)
 
 
-def attribution(state, name, biomass, coal, blh_night):
+def attribution(state, name, biomass, coal, blh_night, coarse=0.0):
     kind = 'ncr' if is_ncr(state, name) else 'igp' if state in IGP else 'rest'
     veh, dust, ind, hh, reg = PRIORS[kind]
     ind += min(0.18, coal / 12000)                        # nearby coal capacity (MW, distance-weighted)
@@ -177,6 +191,12 @@ def attribution(state, name, biomass, coal, blh_night):
     veh, dust, hh = veh * local, dust * local, hh * local
     tot = veh + dust + ind + hh + reg
     stubble = STUBBLE_MAX * biomass / (biomass + STUBBLE_K)
+    # coarse-heavy air (PM10 >> PM2.5) is mostly crustal dust: let the measured ratio lift the dust share
+    if coarse > 0.6:
+        want = min(0.85, coarse) * tot
+        if dust < want:
+            scale = (tot - want) / (tot - dust)
+            veh, ind, hh, reg, dust = veh * scale, ind * scale, hh * scale, reg * scale, want
     k = (1 - stubble) / tot
     return {'fire': round(stubble, 3), 'vehicles': round(veh * k, 3), 'dust': round(dust * k, 3),
             'industry': round(ind * k, 3), 'household': round(hh * k, 3), 'regional': round(reg * k, 3)}, kind
@@ -285,7 +305,11 @@ def build():
         vi_now = bilinear(BLH[now_w], clon, clat) * bilinear(W10[now_w], clon, clat)
         vi_min = min(bilinear(BLH[min(nh - 1, now_w + k)], clon, clat) * bilinear(W10[min(nh - 1, now_w + k)], clon, clat)
                      for k in range(24))
-        att, kind = attribution(props['state'], props['district'], biomass, coal, min(night))
+        coarse = (pm10_now - pm25_now) / pm10_now if pm10_now > 150 else 0.0
+        att, kind = attribution(props['state'], props['district'], biomass, coal, min(night), coarse)
+        ahead10 = [x for x in pm10s[now_a:now_a + 25] if x is not None]
+        ahead25 = [x for x in pm25s[now_a:now_a + 25] if x is not None]
+        dust_ahead = bool(ahead10) and max(ahead10) > 400 and max(ahead10) > 3 * max(ahead25)
 
         # top source clusters (0.25 deg) for Trace to Source
         clusters = {}
@@ -303,6 +327,7 @@ def build():
             'att': att, 'conf': 'medium' if biomass > 50 or kind == 'ncr' else 'low',
             'traj': traj, 'clusters': [{'c': [round(c[3] / c[1], 3), round(c[4] / c[1], 3)], 'fires': c[1],
                                         'frp': round(c[2]), 'w': round(c[0])} for c in top],
+            'dustAhead': dust_ahead,
             'vi': round(vi_now), 'viMin': round(vi_min), 'blhMin': round(min(night)),
             'best': {'start': best[0], 'pm25': round(best[1])} if best else None,
         })
@@ -319,8 +344,19 @@ def build():
         frames.append({'t': (t0 + timedelta(hours=h)).isoformat(),
                        'u': [round(x, 1) for x in U[h]], 'v': [round(x, 1) for x in V[h]]})
 
+    # smog raids: districts crossing into Very Poor now, or forecast to within 24 h
+    raids = []
+    for d in out:
+        ahead = d['fc'][1:25]
+        if d['aqi'] > RAID_AQI and d['aqiPrev'] <= RAID_AQI:
+            raids.append({'id': d['id'], 'n': d['n'], 's': d['s'], 'aqi': d['aqi'], 'kind': 'now', 'etaH': 0, 'dust': d['dustAhead']})
+        elif d['aqi'] <= RAID_AQI and ahead and max(ahead) > RAID_AQI:
+            eta = next(i + 1 for i, v in enumerate(ahead) if v > RAID_AQI)
+            raids.append({'id': d['id'], 'n': d['n'], 's': d['s'], 'aqi': max(ahead), 'kind': 'incoming', 'etaH': eta, 'dust': d['dustAhead']})
+    raids.sort(key=lambda r: -r['aqi'])
+
     world = {
-        'generatedAt': now.isoformat(), 'sources': sources, 'districts': out,
+        'generatedAt': now.isoformat(), 'sources': sources, 'districts': out, 'raids': raids[:50],
         'fires': fires,
         'wind': {'lon0': LON0, 'lat0': LAT0, 'd': D, 'nx': NX, 'ny': NY, 'frames': frames,
                  'blh': [round(x) for x in BLH[now_w]]},
@@ -331,12 +367,19 @@ def build():
 
 
 def write(world):
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     body = json.dumps(world, separators=(',', ':'))
+    stamp = world['generatedAt'][:13].replace('-', '').replace('T', '')
+    if BUCKET:
+        c = s3()
+        c.put_object(Bucket=BUCKET, Key='data/world.json', Body=gzip.compress(body.encode()), ContentType='application/json',
+                     ContentEncoding='gzip', CacheControl='public, max-age=300')
+        c.put_object(Bucket=BUCKET, Key=f'archive/world-{stamp}.json.gz', Body=gzip.compress(body.encode()),
+                     ContentType='application/gzip')
+        return len(body)
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w') as f:
         f.write(body)
     os.makedirs(ARCHIVE, exist_ok=True)
-    stamp = world['generatedAt'][:13].replace('-', '').replace('T', '')
     with gzip.open(os.path.join(ARCHIVE, f'world-{stamp}.json.gz'), 'wt') as f:
         f.write(body)
     return len(body)
@@ -345,7 +388,8 @@ def write(world):
 def handler(event=None, context=None):
     world = build()
     size = write(world)
-    return {'districts': len(world['districts']), 'fires': len(world['fires']), 'bytes': size}
+    return {'generatedAt': world['generatedAt'], 'districts': len(world['districts']), 'fires': len(world['fires']),
+            'bytes': size, 'raids': world['raids']}
 
 
 if __name__ == '__main__':

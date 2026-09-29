@@ -1,0 +1,64 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ArqServices",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:*",
+        "s3:*",
+        "lambda:*",
+        "states:*",
+        "scheduler:*",
+        "events:*",
+        "sns:*",
+        "sqs:*",
+        "dynamodb:*",
+        "apigateway:*",
+        "cloudfront:*",
+        "logs:*",
+        "cloudwatch:*",
+        "bedrock:*",
+        "sagemaker:*",
+        "ecr:*",
+        "amplify:*",
+        "budgets:*",
+        "ssm:GetParameter*",
+        "ssm:PutParameter",
+        "kms:Decrypt",
+        "iam:ListRoles",
+        "iam:ListPolicies",
+        "sts:GetCallerIdentity"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ArqRolesOnly",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:UpdateRole",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:PassRole",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:UpdateAssumeRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::694282668761:role/arq-*"
+    },
+    {
+      "Sid": "ServiceLinkedRoles",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*"
+    }
+  ]
+}

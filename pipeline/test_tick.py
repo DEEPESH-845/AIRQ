@@ -21,4 +21,7 @@ a0, kind = attribution('DELHI', 'SOUTH', 0, 0, 400)
 a1, _ = attribution('DELHI', 'SOUTH', 5000, 0, 400)
 assert kind == 'ncr' and abs(sum(a1.values()) - 1) < 0.01 and a1['fire'] > a0['fire'] == 0
 assert attribution('KERALA', 'ERNAKULAM', 0, 0, 800)[1] == 'rest'
+# dusty air (PM10 >> PM2.5) shifts the split toward dust and still sums to 1
+ad, _ = attribution('HARYANA', 'JIND', 0, 0, 400, coarse=0.8)
+assert ad['dust'] > a0['dust'] and abs(sum(ad.values()) - 1) < 0.01
 print('ok')

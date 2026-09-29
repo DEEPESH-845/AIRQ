@@ -7,3 +7,4 @@ data/archive/
 __pycache__/
 .aws-sam/
 web/test-results/
+build/

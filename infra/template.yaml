@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ARQ - India's air, live. WorldTick (EventBridge Scheduler -> Step Functions -> Lambda) rebuilds
+  world.json from CAMS, Open-Meteo wind and NASA FIRMS; S3 + CloudFront serve the app; smog raids
+  fan out through EventBridge to SNS.
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: Optional email for budget alerts ($5 forecast, $20 actual). Leave empty to skip.
+
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [arm64]
+    Tracing: Active
+    LoggingConfig:
+      LogFormat: JSON
+
+Resources:
+  # ---------------------------------------------------------------- storage + delivery
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub arq-site-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-archive
+            Prefix: archive/
+            Status: Enabled
+            ExpirationInDays: 90
+
+  SiteOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub arq-oac-${AWS::StackName}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  DataCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub arq-data-${AWS::StackName}
+        MinTTL: 0
+        DefaultTTL: 300
+        MaxTTL: 600
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          CookiesConfig: { CookieBehavior: none }
+          HeadersConfig: { HeaderBehavior: none }
+          QueryStringsConfig: { QueryStringBehavior: none }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: ARQ web app
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200 # includes edge locations in India
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !Ref SiteOAC
+            S3OriginConfig: { OriginAccessIdentity: '' }
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+        CacheBehaviors:
+          - PathPattern: data/*
+            TargetOriginId: site
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            CachePolicyId: !Ref DataCachePolicy
+        CustomErrorResponses:
+          - { ErrorCode: 403, ResponseCode: 200, ResponsePagePath: /index.html, ErrorCachingMinTTL: 10 }
+          - { ErrorCode: 404, ResponseCode: 200, ResponsePagePath: /index.html, ErrorCachingMinTTL: 10 }
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub ${SiteBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+
+  # ---------------------------------------------------------------- the game tick
+  TickFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: arq-world-tick
+      CodeUri: ../build/tick
+      Handler: tick.handler
+      MemorySize: 1024
+      Timeout: 300
+      Environment:
+        Variables:
+          ARQ_BUCKET: !Ref SiteBucket
+          ARQ_GEO: /var/task/geo
+          ARQ_CACHE: /tmp/cache
+      Policies:
+        - S3CrudPolicy: { BucketName: !Ref SiteBucket }
+
+  TickLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/vendedlogs/states/arq-world-tick
+      RetentionInDays: 14
+
+  WorldTick:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: arq-world-tick
+      Type: EXPRESS
+      Tracing: { Enabled: true }
+      Logging:
+        Level: ERROR
+        IncludeExecutionData: false
+        Destinations:
+          - CloudWatchLogsLogGroup: { LogGroupArn: !GetAtt TickLogs.Arn }
+      Policies:
+        - LambdaInvokePolicy: { FunctionName: !Ref TickFunction }
+        - EventBridgePutEventsPolicy: { EventBusName: default }
+        - CloudWatchLogsFullAccess
+      Events:
+        Every4Hours:
+          Type: ScheduleV2
+          Properties:
+            # Open-Meteo's free tier is ~10k location-calls a day; one tick is ~1.3k
+            ScheduleExpression: rate(4 hours)
+            RetryPolicy: { MaximumRetryAttempts: 1 }
+      DefinitionSubstitutions:
+        TickArn: !GetAtt TickFunction.Arn
+      Definition:
+        Comment: Fetch feeds, rebuild the world, announce smog raids
+        StartAt: BuildWorld
+        States:
+          BuildWorld:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${TickArn}
+            OutputPath: $.Payload
+            Retry:
+              - ErrorEquals: [Lambda.ServiceException, Lambda.TooManyRequestsException, States.Timeout]
+                IntervalSeconds: 20
+                MaxAttempts: 2
+                BackoffRate: 2
+            Next: AnyRaids
+          AnyRaids:
+            Type: Choice
+            Choices:
+              - Variable: $.raids[0]
+                IsPresent: true
+                Next: AnnounceRaids
+            Default: Done
+          AnnounceRaids:
+            Type: Map
+            ItemsPath: $.raids
+            MaxConcurrency: 10
+            ItemProcessor:
+              ProcessorConfig: { Mode: INLINE }
+              StartAt: PutRaidEvent
+              States:
+                PutRaidEvent:
+                  Type: Task
+                  Resource: arn:aws:states:::events:putEvents
+                  Parameters:
+                    Entries:
+                      - Source: arq.world
+                        DetailType: SmogRaid
+                        Detail.$: $
+                  End: true
+            ResultPath: null
+            Next: Done
+          Done:
+            Type: Succeed
+
+  # ---------------------------------------------------------------- raid fan-out
+  RaidTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: arq-smog-raids
+
+  RaidTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref RaidTopic]
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: { Service: events.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref RaidTopic
+
+  RaidRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: arq-smog-raid
+      Description: Every SmogRaid from WorldTick goes to the raid topic (web push subscribers hang off it)
+      EventPattern:
+        source: [arq.world]
+        detail-type: [SmogRaid]
+      Targets:
+        - Id: raid-topic
+          Arn: !Ref RaidTopic
+
+  # ---------------------------------------------------------------- cost guardrail
+  Budget:
+    Type: AWS::Budgets::Budget
+    Condition: HasAlertEmail
+    Properties:
+      Budget:
+        BudgetName: arq-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: { Amount: 20, Unit: USD }
+      NotificationsWithSubscribers:
+        - Notification: { NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 25 }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref AlertEmail }]
+        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100 }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref AlertEmail }]
+
+Outputs:
+  SiteUrl:
+    Value: !Sub https://${Distribution.DomainName}
+  Bucket:
+    Value: !Ref SiteBucket
+  DistributionId:
+    Value: !Ref Distribution
+  WorldTickArn:
+    Value: !Ref WorldTick
+  RaidTopicArn:
+    Value: !Ref RaidTopic
