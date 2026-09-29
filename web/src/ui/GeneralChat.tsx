@@ -10,7 +10,9 @@ export function GeneralChat({ selected, onHighlight, onClose }: { selected: Dist
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), [msgs, busy])
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) // returns a Promise in newer Chrome: never return it
+  }, [msgs, busy])
 
   const suggestions = [
     'Where is the air worst right now?',

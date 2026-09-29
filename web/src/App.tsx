@@ -6,6 +6,7 @@ import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
 import { Rankings } from './ui/Rankings'
 import { GeneralChat } from './ui/GeneralChat'
+import { Boundary } from './ui/Boundary'
 import { settle, bandName, type Result } from './lib/game'
 
 export default function App() {
@@ -53,9 +54,11 @@ export default function App() {
     <main className="app">
       <ArqMap world={world} selected={selected} onSelect={setSelectedId} panelOpen={!!selected} trace={tracing ? selected : null} highlight={highlight} />
       <TopBar world={world} onSelect={setSelectedId} onGeneral={() => setSide('general')} />
+      <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={setSelectedId} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
       {side === 'readout' && <NationalReadout world={world} onSelect={setSelectedId} onRankings={() => setSide('rankings')} />}
+      </Boundary>
       {tracing && selected && (
         <div className="trace-banner" role="status">
           <span>
@@ -75,7 +78,9 @@ export default function App() {
         </div>
       )}
       {selected && (
-        <DistrictPanel key={selected.id} d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={() => setTracing(true)} onHighlight={setHighlight} />
+        <Boundary key={selected.id}>
+        <DistrictPanel d={selected} generatedAt={world.generatedAt} onClose={() => setSelectedId(null)} onTrace={() => setTracing(true)} onHighlight={setHighlight} />
+        </Boundary>
       )}
     </main>
   )

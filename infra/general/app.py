@@ -216,6 +216,14 @@ def reply(code, body):
 
 def handler(event, context=None):
     try:
+        return _handle(event)
+    except Exception as e:  # Bedrock access, throttling, timeouts: tell the player plainly, keep the trace in logs
+        print(f'[general] {type(e).__name__}: {e}')
+        return reply(503, {'error': 'The General is offline right now. Try again in a few minutes.'})
+
+
+def _handle(event):
+    try:
         body = json.loads(event.get('body') or '{}')
     except json.JSONDecodeError:
         return reply(400, {'error': 'Send JSON.'})
