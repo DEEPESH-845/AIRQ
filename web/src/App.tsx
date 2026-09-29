@@ -26,6 +26,7 @@ export default function App() {
   useEffect(() => {
     loadWorld().then((w) => {
       setWorld(w)
+      setSelectedId((cur) => (cur && w.districts.some((d) => d.id === cur) ? cur : null)) // drop a stale ?d=
       const r = settle(w.districts, w.generatedAt)
       setResults(r) // the results toast shows the XP; award in the same step so a closed tab can't lose it
       act((p) => addPoints(p, r.reduce((a, x) => a + x.points, 0), 'Forecast Duel results'))
@@ -101,8 +102,9 @@ export default function App() {
   }
   // choosing a district any way (map, search, rankings) ends the briefing: they have taken command
   const select = (id: string | null) => {
+    if (!id) return closeDistrict()
     setSelectedId(id)
-    if (id && intro) endIntro(false)
+    if (intro) endIntro(false)
   }
   useEffect(() => setTracing(false), [selectedId])
   const goMission = (id: MissionId) => {
@@ -168,7 +170,7 @@ export default function App() {
             onClose={() => setHow(false)}
             onReplay={() => {
               setHow(false)
-              setSelectedId(null)
+              closeDistrict()
               setIntro(true)
             }}
           />

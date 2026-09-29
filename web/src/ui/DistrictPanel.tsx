@@ -73,6 +73,8 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
   // a mission prompt brings its control into view, focuses it and glows it once
   useEffect(() => {
     if (!focusKey) return
+    let glow = 0
+    let lit: HTMLElement | null = null
     const t = setTimeout(() => {
       const el = panelRef.current?.querySelector<HTMLElement>(`[data-mission="${spot}"]`)
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -80,9 +82,14 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
       const target = el ? (el.matches('button') ? el : el.querySelector<HTMLElement>('button')) : panelRef.current
       target?.focus({ preventScroll: true })
       el?.classList.add('spotlight')
-      setTimeout(() => el?.classList.remove('spotlight'), 2600)
+      lit = el ?? null
+      glow = window.setTimeout(() => el?.classList.remove('spotlight'), 2600)
     }, 60) // after the tab's content renders
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      clearTimeout(glow)
+      lit?.classList.remove('spotlight')
+    }
   }, [focusKey]) // eslint-disable-line react-hooks/exhaustive-deps -- run per prompt click
   const cat = catOf(d.aqi)
   const advice = adviceFor(d.aqi)

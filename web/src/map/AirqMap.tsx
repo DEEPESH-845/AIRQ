@@ -43,7 +43,8 @@ const raid = ['coalesce', ['feature-state', 'raid'], 0]
 const HAZE = '#f3e4cf' // pale smoke over the band colour
 const hazeOpacity = (v: number) => ['case', ['==', raid, 2], v, 0]
 // dash phases for a marching line (MapLibre can't animate dash offset, so step through equivalent patterns)
-const MARCH = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]]
+// every phase has an even length and the same 7-unit period, so MapLibre never doubles a pattern mid-march
+const MARCH = [[0, 4, 3, 0], [0.5, 4, 2.5, 0], [1, 4, 2, 0], [1.5, 4, 1.5, 0], [2, 4, 1, 0], [2.5, 4, 0.5, 0], [3, 4, 0, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]]
 
 const STYLE: StyleSpecification = {
   version: 8,
@@ -297,6 +298,7 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     }
     const apply = () => {
       cancelAnimationFrame(raf)
+      step = -1
       if (mq.matches) still()
       else raf = requestAnimationFrame(frame)
     }

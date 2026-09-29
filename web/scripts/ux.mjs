@@ -66,5 +66,27 @@ await page.waitForTimeout(300)
 if (await page.$('.intro')) fail('briefing stayed open over Ask the General')
 await page.close()
 
+// closing a district from the UI (here: Replay the briefing) must not leave a dead history entry behind
+page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+await page.goto(base + '/', { waitUntil: 'networkidle' })
+await page.keyboard.press('Escape')
+await page.fill('#district-search', world.districts[0].n)
+await page.keyboard.press('Enter')
+await page.waitForSelector('.panel')
+await page.click('.help-btn')
+await page.waitForSelector('.how-replay')
+await page.click('.how-replay')
+await page.waitForTimeout(500)
+if (await page.evaluate(() => history.state?.airqDistrict === true)) fail('closing via the UI left the district history entry behind')
+if (await page.$('.panel')) fail('Replay the briefing did not close the district')
+await page.close()
+
+// a stale ?d= (district not in today's world) opens nothing and leaves no phantom selection
+page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+await page.goto(base + '/?d=nope', { waitUntil: 'networkidle' })
+await page.waitForTimeout(300)
+if (new URL(page.url()).searchParams.get('d')) fail('unknown ?d= kept in the URL')
+await page.close()
+
 console.log(process.exitCode ? 'ux: FAIL' : 'ux: ok')
 await browser.close()
