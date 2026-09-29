@@ -12,14 +12,14 @@ import csv, gzip, io, json, math, os, time, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GEO = os.path.join(ROOT, 'data', 'geo')
+GEO = os.path.join(ROOT, 'web', 'public', 'geo')
 CACHE = os.environ.get('ARQ_CACHE', os.path.join(ROOT, 'data', 'cache'))
 OUT = os.environ.get('ARQ_OUT', os.path.join(ROOT, 'web', 'public', 'data', 'world.json'))
 ARCHIVE = os.environ.get('ARQ_ARCHIVE', os.path.join(ROOT, 'data', 'archive'))
 IST = timezone(timedelta(hours=5, minutes=30))
 
 # Wind grid over India + upwind Pakistan / Afghanistan border
-LON0, LAT0, D, NX, NY = 64.0, 5.0, 1.5, 25, 23
+LON0, LAT0, D, NX, NY = 56.0, 0.0, 2.0, 26, 21
 
 # ---------------------------------------------------------------- NAQI (CPCB 2014)
 BP = {
@@ -89,7 +89,7 @@ def fetch_fires(now):
         text = get(f'https://firms.modaps.eosdis.nasa.gov/data/active_fire/{path}_South_Asia_7d.csv').decode()
         for r in csv.DictReader(io.StringIO(text)):
             lon, lat = float(r['longitude']), float(r['latitude'])
-            if not (LON0 <= lon <= 99 and 5 <= lat <= 38) or r['confidence'] in ('l', 'low'):
+            if not (60 <= lon <= 100 and 4 <= lat <= 38) or r['confidence'] in ('l', 'low'):
                 continue
             t = datetime.strptime(r['acq_date'] + r['acq_time'].zfill(4), '%Y-%m-%d%H%M').replace(tzinfo=timezone.utc)
             age = (now - t).total_seconds() / 3600
