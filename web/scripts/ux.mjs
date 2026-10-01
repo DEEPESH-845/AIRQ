@@ -88,5 +88,35 @@ await page.waitForTimeout(300)
 if (new URL(page.url()).searchParams.get('d')) fail('unknown ?d= kept in the URL')
 await page.close()
 
+// zooming in and back out keeps every district coloured (animating data-driven paint once left half of India blank).
+// Needs real GPU timing: under swiftshader the frames are too slow to starve the tile loads.
+const gpu = await chromium.launch({ channel: 'chrome' }).catch(() => null)
+if (!gpu) console.warn('skip: zoom colour check needs Google Chrome installed')
+else {
+page = await gpu.newPage({ viewport: { width: 1440, height: 800 } })
+await page.goto(base + '/', { waitUntil: 'networkidle' })
+await page.keyboard.press('Escape')
+await page.waitForTimeout(2000)
+await page.mouse.move(720, 600)
+for (let i = 0; i < 8; i++) await page.mouse.wheel(0, -250), await page.waitForTimeout(120)
+await page.waitForTimeout(2500)
+for (let i = 0; i < 10; i++) await page.mouse.wheel(0, 300), await page.waitForTimeout(120)
+await page.waitForTimeout(2500)
+const blank = await page.evaluate(async (b64) => {
+  // pixels in the uncoloured-land shade (#2a2650): India with no district fill on top
+  const img = new Image()
+  img.src = 'data:image/png;base64,' + b64
+  await img.decode()
+  const x = new OffscreenCanvas(img.width, img.height).getContext('2d')
+  x.drawImage(img, 0, 0)
+  const d = x.getImageData(0, 0, img.width, img.height).data
+  let n = 0
+  for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 42) < 3 && Math.abs(d[i + 1] - 38) < 3 && Math.abs(d[i + 2] - 80) < 3) n++
+  return n
+}, (await page.screenshot()).toString('base64'))
+if (blank > 6000) fail(`districts left uncoloured after zooming in and out (${blank} blank px)`)
+await gpu.close()
+}
+
 console.log(process.exitCode ? 'ux: FAIL' : 'ux: ok')
 await browser.close()

@@ -391,6 +391,8 @@ button { font: inherit; color: inherit; }
 /* banner and key live inside the top bar: the banner is a row, the key hangs just below the bar */
 .topbar .raid-banner { position: static; transform: none; }
 .topbar .map-key { position: absolute; top: calc(100% - 24px); bottom: auto; right: var(--gutter); }
+/* wide screens: the key sits bottom-right over the Bay of Bengal instead of covering north-east India */
+@media (min-width: 1180px) { .topbar .map-key { position: fixed; top: auto; bottom: 20px; } }
 
 .how { position: absolute; inset: 0 0 0 auto; z-index: 8; width: min(640px, 100vw); overflow-y: auto; padding: 22px var(--gutter) 40px; background: rgba(20, 18, 43, 0.98); border-left: 1px solid var(--line); }
 .how:focus-visible { outline: none; }

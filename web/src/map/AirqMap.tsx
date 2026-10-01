@@ -11,14 +11,25 @@ setWorkerUrl(workerUrl)
 
 const INDIA: [[number, number], [number, number]] = [[68.1, 6.7], [97.4, 37.1]]
 const LAND = '#2a2650'
+// on phones the top bar wraps onto several rows (HUD, raid banner), so frame the map below its real height
+const barBottom = () => Math.round(document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 120) + 8
+// ...and above the national readout card that docks at the bottom
+const readoutTop = () => document.querySelector('.readout')?.getBoundingClientRect().top ?? innerHeight - 150
 const homePadding = () =>
-  innerWidth < 760 ? { top: 130, bottom: 150, left: 12, right: 12 } : { top: 90, bottom: 60, left: 480, right: 60 }
+  innerWidth < 760
+    ? { top: barBottom(), bottom: Math.round(innerHeight - readoutTop()) + 8, left: 12, right: 12 }
+    : { top: 90, bottom: 60, left: 480, right: 60 }
 
-export type Focus = { to: 'india' | [number, number] } | null
+// the briefing card sits bottom-centre (and the readout is hidden), so frame India above it
+const briefPadding = () =>
+  innerWidth < 760 ? { top: barBottom(), bottom: 250, left: 12, right: 12 } : { top: 150, bottom: 250, left: 60, right: 60 }
 
+export type Focus = { to: 'india' | [number, number]; brief?: boolean } | null
+
+// AQI and raid level are feature properties (not feature-state) so layer filters can pick out raided districts
 const aqiColor = [
   'step',
-  ['coalesce', ['feature-state', 'aqi'], -1],
+  ['coalesce', ['get', 'aqi'], -1],
   LAND,
   0, CATS[0].color,
   51, CATS[1].color,
@@ -37,14 +48,36 @@ function trajGradient(p: number) {
 
 const empty = { type: 'FeatureCollection' as const, features: [] }
 
-// Smog front: raided districts (feature-state raid: 2 = now, 1 = within 24 h) get a breathing haze
-// (now only) and a dashed border that marches like a weather-front marking. District-shaped, no circles.
-const raid = ['coalesce', ['feature-state', 'raid'], 0]
+// fetched once at module load so the shapes download alongside world.json
+const districtShapes: Promise<{ type: 'FeatureCollection'; features: { type: 'Feature'; geometry: never; properties: { id: string } }[] }> = fetch('/geo/districts.geojson').then((r) => r.json())
+
+// Smog front: raided districts (raid: 2 = now, 1 = within 24 h) get a breathing haze (now only) and a
+// dashed border that marches like a weather-front marking. District-shaped, no circles.
+// Animate only constant, non-data-driven paint values: MapLibre re-lays out the whole districts source
+// whenever a data-driven paint value or line-dasharray changes, and doing that every frame kept tiles
+// from ever finishing loading (half of India stayed uncoloured).
+const raid = ['coalesce', ['get', 'raid'], 0]
+const raided = ['>', raid, 0]
 const HAZE = '#f3e4cf' // pale smoke over the band colour
-const hazeOpacity = (v: number) => ['case', ['==', raid, 2], v, 0]
 // dash phases for a marching line (MapLibre can't animate dash offset, so step through equivalent patterns)
 // every phase has an even length and the same 7-unit period, so MapLibre never doubles a pattern mid-march
 const MARCH = [[0, 4, 3, 0], [0.5, 4, 2.5, 0], [1, 4, 2, 0], [1.5, 4, 1.5, 0], [2, 4, 1, 0], [2.5, 4, 0.5, 0], [3, 4, 0, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]]
+// one line layer per phase; the march shows one at a time by switching opacity
+const frontOpacity = ['interpolate', ['linear'], ['zoom'], 4, 0.35, 6, 0.95]
+const marchLayers = MARCH.map((dash, i) => ({
+  id: `raid-front-${i}`,
+  type: 'line' as const,
+  source: 'districts',
+  filter: raided,
+  layout: { 'line-join': 'round' as const },
+  paint: {
+    'line-color': ['case', ['==', raid, 2], '#fff1e0', '#ffb36b'],
+    'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.4, 8, 2.6],
+    'line-opacity': i === 0 ? frontOpacity : 0,
+    'line-opacity-transition': { duration: 0 },
+    'line-dasharray': dash,
+  },
+}))
 
 const STYLE: StyleSpecification = {
   version: 8,
@@ -52,7 +85,7 @@ const STYLE: StyleSpecification = {
   sources: {
     neighbors: { type: 'geojson', data: '/geo/neighbors.geojson' },
     states: { type: 'geojson', data: '/geo/states.geojson' },
-    districts: { type: 'geojson', data: '/geo/districts.geojson', promoteId: 'id' },
+    districts: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, promoteId: 'id' },
     fires: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     labels: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     traj: { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } },
@@ -78,7 +111,7 @@ const STYLE: StyleSpecification = {
         ],
       },
     },
-    { id: 'raid-haze', type: 'fill', source: 'districts', paint: { 'fill-color': HAZE, 'fill-opacity': hazeOpacity(0.24) as never } },
+    { id: 'raid-haze', type: 'fill', source: 'districts', filter: ['==', raid, 2] as never, paint: { 'fill-color': HAZE, 'fill-opacity': 0.24, 'fill-opacity-transition': { duration: 0 } } },
     {
       id: 'district-lines',
       type: 'line',
@@ -111,27 +144,17 @@ const STYLE: StyleSpecification = {
       id: 'raid-front-glow',
       type: 'line',
       source: 'districts',
+      filter: raided as never,
       layout: { 'line-join': 'round' },
       paint: {
         'line-color': ['case', ['==', raid, 2], '#ffd9b0', '#ff9a4d'] as never,
         'line-width': ['interpolate', ['linear'], ['zoom'], 4, 5, 8, 10],
         'line-blur': ['interpolate', ['linear'], ['zoom'], 4, 4, 8, 8],
         // at country zoom the glow carries the shape; dashes take over as you zoom in
-        'line-opacity': ['interpolate', ['linear'], ['zoom'], 4, ['case', ['>', raid, 0], 0.5, 0], 7, ['case', ['>', raid, 0], 0.3, 0]] as never,
+        'line-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.5, 7, 0.3],
       },
     },
-    {
-      id: 'raid-front',
-      type: 'line',
-      source: 'districts',
-      layout: { 'line-join': 'round' },
-      paint: {
-        'line-color': ['case', ['==', raid, 2], '#fff1e0', '#ffb36b'] as never,
-        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.4, 8, 2.6],
-        'line-opacity': ['interpolate', ['linear'], ['zoom'], 4, ['case', ['>', raid, 0], 0.35, 0], 6, ['case', ['>', raid, 0], 0.95, 0]] as never,
-        'line-dasharray': [2, 2],
-      },
-    },
+    ...(marchLayers as never[]),
     {
       id: 'hl-line',
       type: 'line',
@@ -214,7 +237,7 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
       dragRotate: false,
       pitchWithRotate: false,
       attributionControl: false,
-      minZoom: 3,
+      minZoom: innerWidth < 760 ? 2.5 : 3, // phones need to fit India between the top bar and the readout
       maxZoom: 10,
     })
     map.touchZoomRotate.disableRotation()
@@ -246,6 +269,8 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
       map.getCanvas().style.cursor = ''
       if (tip.current) tip.current.dataset.show = 'false'
     })
+    // the camera flies on select: don't leave the tooltip floating over a district that moved away
+    map.on('movestart', () => tip.current && (tip.current.dataset.show = 'false'))
     map.on('click', 'districts', (e) => {
       const f = e.features?.[0]
       if (f) onSelectRef.current(String(f.id))
@@ -258,7 +283,17 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     const map = mapRef.current
     if (!map || !ready) return
     const levels = raidLevels(world.raids)
-    for (const d of world.districts) map.setFeatureState({ source: 'districts', id: d.id }, { aqi: d.aqi, raid: levels[d.id] ?? 0 })
+    let live = true
+    districtShapes.then((geo) => {
+      if (!live) return
+      ;(map.getSource('districts') as GeoJSONSource).setData({
+        type: 'FeatureCollection',
+        features: geo.features.map((f) => {
+          const id = f.properties.id
+          return { ...f, properties: { id, aqi: byId.current.get(id)?.aqi ?? -1, raid: levels[id] ?? 0 } }
+        }),
+      })
+    })
     ;(map.getSource('fires') as GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: world.fires.filter((f) => f[3] <= 24).map(([lon, lat, frp, age]) => ({
@@ -275,7 +310,11 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
         properties: { n: d.n },
       })),
     })
-    return startParticles(map, canvas.current!, world)
+    const stop = startParticles(map, canvas.current!, world)
+    return () => {
+      live = false
+      stop()
+    }
   }, [world, ready])
 
   // smog front: the haze breathes (~4.2 s) and the border marches (~1.5 s per cycle).
@@ -285,20 +324,23 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     if (!map || !ready || !world.raids.length) return
     const mq = matchMedia('(prefers-reduced-motion: reduce)')
     let raf = 0
-    let step = -1
+    let step = 0
+    const show = (s: number) => {
+      if (s === step) return
+      map.setPaintProperty(`raid-front-${step}`, 'line-opacity', 0)
+      map.setPaintProperty(`raid-front-${(step = s)}`, 'line-opacity', frontOpacity as never)
+    }
     const still = () => {
-      map.setPaintProperty('raid-haze', 'fill-opacity', hazeOpacity(0.24) as never)
-      map.setPaintProperty('raid-front', 'line-dasharray', [2, 2])
+      map.setPaintProperty('raid-haze', 'fill-opacity', 0.24)
+      show(0)
     }
     const frame = (t: number) => {
-      map.setPaintProperty('raid-haze', 'fill-opacity', hazeOpacity(0.16 + 0.16 * (0.5 + 0.5 * Math.sin((t / 4200) * 2 * Math.PI))) as never)
-      const s = Math.floor(t / 110) % MARCH.length
-      if (s !== step) map.setPaintProperty('raid-front', 'line-dasharray', MARCH[(step = s)])
+      map.setPaintProperty('raid-haze', 'fill-opacity', 0.16 + 0.16 * (0.5 + 0.5 * Math.sin((t / 4200) * 2 * Math.PI)))
+      show(Math.floor(t / 110) % MARCH.length)
       raf = requestAnimationFrame(frame)
     }
     const apply = () => {
       cancelAnimationFrame(raf)
-      step = -1
       if (mq.matches) still()
       else raf = requestAnimationFrame(frame)
     }
@@ -328,7 +370,7 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready || !focus) return
-    if (focus.to === 'india') return void map.fitBounds(INDIA, { padding: homePadding(), duration: 1200 })
+    if (focus.to === 'india') return void map.fitBounds(INDIA, { padding: focus.brief ? briefPadding() : homePadding(), duration: 1200 })
     const mobile = innerWidth < 760
     map.flyTo({
       center: focus.to,
