@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { District, World } from '../lib/world'
 import type { Focus } from '../map/AirqMap'
-import { defaultDistrict, nearestDistrict, pickStory, poorPlus } from '../lib/story'
+import { defaultDistrict, nearIndia, nearestDistrict, pickStory, poorPlus } from '../lib/story'
 import { SOURCES } from './Attribution'
 
 type Scene = { focus: Focus; trace: District | null }
@@ -33,7 +33,10 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
 
   // a slow location answer must not act after the card has closed
   const alive = useRef(true)
-  useEffect(() => () => void (alive.current = false), [])
+  useEffect(() => {
+    alive.current = true // StrictMode mounts twice: set on every mount, not only at creation
+    return () => void (alive.current = false)
+  }, [])
   const locate = () => {
     if (!('geolocation' in navigator)) return onSearch()
     setLocating(true)
@@ -41,7 +44,9 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
       (pos) => {
         if (!alive.current) return
         setLocating(false)
-        setNear(nearestDistrict(world.districts, pos.coords.longitude, pos.coords.latitude))
+        const at: [number, number] = [pos.coords.longitude, pos.coords.latitude]
+        if (nearIndia(world.districts, at)) setNear(nearestDistrict(world.districts, at[0], at[1]))
+        else onSearch() // outside India: let them search instead of guessing a district hundreds of km away
       },
       () => {
         if (!alive.current) return

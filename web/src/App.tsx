@@ -21,7 +21,8 @@ import { Boundary } from './ui/Boundary'
 import { settle, bandName, type Result } from './lib/game'
 import { Hud } from './ui/Hud'
 import { MISSIONS, act, addPoints, checkIn, completeMission, getPlayer, markIntroSeen, shouldShowIntro, usePlayer, type MissionId, type Tab } from './lib/player'
-import { defaultDistrict } from './lib/story'
+import { defaultDistrict, nearestDistrict } from './lib/story'
+import { ECO } from './lib/account'
 
 export default function App() {
   const [world, setWorld] = useState<World | null>(null)
@@ -81,6 +82,7 @@ export default function App() {
   const [guide, setGuide] = useState(false)
   const [picking, setPicking] = useState(false)
   const [fieldPick, setFieldPick] = useState<Pick | null>(null)
+  const [pickMsg, setPickMsg] = useState('')
   const [cert, setCert] = useState<string | null>(() => new URLSearchParams(location.search).get('cert'))
   const { me } = useAccount()
   const feed = useFeed()
@@ -183,7 +185,17 @@ export default function App() {
   const startPick = () => {
     closeDistrict()
     setSide('readout')
+    setPickMsg('')
     setPicking(true)
+    setFocus(innerWidth < 760 ? { to: [75.6, 30.5], zoom: 5.7 } : { to: [76.2, 30.0], zoom: 6.3 }) // the Punjab-Haryana stubble belt
+  }
+  // same rule as the server (field_error): in an Indo-Gangetic district, or near recent farm fires
+  const inBelt = (lon: number, lat: number) => {
+    if (!world) return false
+    const d = nearestDistrict(world.districts, lon, lat)
+    const km = (a: [number, number], b: [number, number]) => Math.hypot((b[0] - a[0]) * 111.32 * Math.cos((a[1] * Math.PI) / 180), (b[1] - a[1]) * 110.57)
+    if (km(d.c, [lon, lat]) > 100) return false
+    return d.k !== 'rest' || world.fires.filter((f) => km([lon, lat], [f[0], f[1]]) <= ECO.fieldWatch.beltKm).length >= 3
   }
   const cancelPick = () => {
     setPicking(false)
@@ -238,6 +250,7 @@ export default function App() {
         onPick={
           picking
             ? (lon, lat) => {
+                if (!inBelt(lon, lat)) return setPickMsg('Not in the stubble belt. Tap a farm in Punjab, Haryana, west UP or Bihar.')
                 setPicking(false)
                 setFieldPick({ lon, lat })
                 openImpact('earn')
@@ -247,8 +260,9 @@ export default function App() {
       />
       <TopBar world={world} onSelect={select} onGeneral={openGeneral} onHelp={() => setGuide(true)}>
         <Hud onMission={goMission} onImpact={openImpact} />
-        {!intro && <RaidBanner world={world} onSelect={select} />}
-        {!selected && <MapKey open={keyOpen} onToggle={setKeyOpen} />}
+        {/* pin mode clears the map: the readout, key and raid banner would cover the field you need to tap */}
+        {!intro && !picking && <RaidBanner world={world} onSelect={select} />}
+        {!selected && side === 'readout' && !picking && <MapKey open={keyOpen} onToggle={setKeyOpen} />}
       </TopBar>
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={select} onClose={() => setSide('readout')} />}
@@ -266,7 +280,7 @@ export default function App() {
           onCert={openCert}
         />
       )}
-      {side === 'readout' && !intro && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} onImpact={() => openImpact('leaders')} />}
+      {side === 'readout' && !intro && !picking && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} onImpact={() => openImpact('leaders')} />}
       </Boundary>
       {intro && (
         <Intro
@@ -311,6 +325,7 @@ export default function App() {
             onReplay={() => {
               setHow(false)
               closeDistrict()
+              setSide('readout') // same as the Field Manual's replay: nothing left open under the briefing
               setIntro(true)
             }}
           />
@@ -318,9 +333,7 @@ export default function App() {
       )}
       {picking && (
         <div className="trace-banner pick-banner" role="status">
-          <span>
-            Tap your <b>field</b> on the map. Zoom in to be precise.
-          </span>
+          <span aria-live="polite">{pickMsg || <>Tap your <b>field</b> on the map. Zoom in to be precise.</>}</span>
           <button onClick={cancelPick}>Cancel</button>
         </div>
       )}

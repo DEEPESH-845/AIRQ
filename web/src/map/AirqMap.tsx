@@ -306,7 +306,8 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
       map.getCanvas().style.cursor = onPickRef.current ? 'crosshair' : 'pointer'
       const d = byId.current.get(id)
       const t = tip.current
-      if (t && d) {
+      // touch screens have no hover: a tap would leave the tooltip stuck on screen
+      if (t && d && matchMedia('(hover: hover)').matches) {
         t.style.transform = `translate(${e.point.x + 14}px, ${e.point.y + 14}px)`
         t.dataset.show = 'true'
         t.innerHTML = `<b>${d.n}</b><span>${d.s}</span><i style="--c:${catOf(d.aqi).color}">${d.aqi}</i>`

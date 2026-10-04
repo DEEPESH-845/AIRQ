@@ -200,7 +200,7 @@ def guidance(q, d):
 def order_line(d):
     """Deterministic civilian order for a briefing: worst of now and the next 12 hours, persona 'sensitive'."""
     row = MATRIX[band(max(d['aqi'], max(d['fc'][:13])))]
-    return f"Order: {row['verdict']}. {row['sensitive']}"
+    return f"Order for sensitive groups, next 12 h: {row['verdict']}. {row['sensitive']}"
 
 
 def agent():

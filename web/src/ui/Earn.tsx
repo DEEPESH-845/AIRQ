@@ -124,7 +124,7 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
                 <span>
                   {a.label}
                   {a.challenge && <em className="code-chip">code</em>}
-                  <small>{capped ? (week >= a.perWeek ? 'Weekly limit reached' : 'Done for today') : `${a.perDay - day} left today${a.perWeek < 7 ? `, ${a.perWeek}/week` : ''}`}</small>
+                  <small>{capped ? (week >= a.perWeek ? 'Weekly limit reached' : 'Done for today') : `${a.perDay - day} left today${a.perWeek < 7 ? `, ${a.perWeek}/week` : ''}${me.firsts.includes(a.id) ? '' : `, incl. +${ECO.firstBonus} first-time bonus`}`}</small>
                 </span>
                 <b>+{gain}</b>
               </button>

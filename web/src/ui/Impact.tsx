@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { District, World } from '../lib/world'
 import { enlist, useAccount } from '../lib/account'
+import { nearIndia, nearestDistrict } from '../lib/story'
 import { Earn } from './Earn'
 import { Shop } from './Shop'
 import { Leaderboard } from './Leaderboard'
@@ -65,6 +66,24 @@ function Enlist({ world, home }: { world: World; home: District }) {
   const [d, setD] = useState(home.id)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [locating, setLocating] = useState(false)
+  const locate = () => {
+    setLocating(true)
+    setErr('')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        const at: [number, number] = [pos.coords.longitude, pos.coords.latitude]
+        if (nearIndia(world.districts, at)) setD(nearestDistrict(world.districts, at[0], at[1]).id)
+        else setErr("You seem to be outside India. Pick your home district from the list.")
+      },
+      () => {
+        setLocating(false)
+        setErr('Location unavailable. Pick your district from the list.')
+      },
+      { timeout: 8000, maximumAge: 600000 },
+    )
+  }
   const byState = useMemo(() => {
     const m = new Map<string, District[]>()
     for (const x of [...world.districts].sort((a, b) => a.n.localeCompare(b.n))) m.set(x.s, [...(m.get(x.s) ?? []), x])
@@ -112,6 +131,11 @@ function Enlist({ world, home }: { world: World; home: District }) {
             </optgroup>
           ))}
         </select>
+        {'geolocation' in navigator && (
+          <button type="button" className="linkish" onClick={locate} disabled={locating}>
+            {locating ? 'Finding you…' : 'Use my location'}
+          </button>
+        )}
         <small>Sets your frontline bonus and district board. After your first change, it can change once every 30 days.</small>
       </label>
       <button className="primary-btn" disabled={!ok || busy}>

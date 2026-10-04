@@ -38,7 +38,7 @@ export function Shop({ me, onEarn }: { me: Me; onEarn: () => void }) {
         </button>
       </p>
       {msg && (
-        <p className={`fine${msg.warn ? ' warn' : ''}`} role="status">
+        <p className={`fine shop-msg${msg.warn ? ' warn' : ''}`} role="status">
           {msg.text}
         </p>
       )}
@@ -53,7 +53,8 @@ export function Shop({ me, onEarn }: { me: Me; onEarn: () => void }) {
               .filter((it) => it.kind === sh.kind)
               .map((it) => {
                 const has = owned(it)
-                const cant = me.cr < it.cost || (it.kind === 'goodie' && locked) || has === true
+                const claimed = it.kind === 'goodie' && me.claims.some((c) => c.item === it.id && c.status === 'review')
+                const cant = me.cr < it.cost || (it.kind === 'goodie' && locked) || has === true || claimed
                 return (
                   <li key={it.id}>
                     <span>
@@ -67,7 +68,7 @@ export function Shop({ me, onEarn }: { me: Me; onEarn: () => void }) {
                       </button>
                     ) : (
                       <button className="buy" disabled={cant || busy} onClick={() => (it.kind === 'goodie' ? setConfirm(it) : purchase(it))}>
-                        {it.cost}
+                        {claimed ? 'Claimed' : it.cost}
                       </button>
                     )}
                   </li>

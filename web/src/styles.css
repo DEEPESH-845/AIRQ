@@ -249,7 +249,7 @@ button { font: inherit; color: inherit; }
 }
 .duel-opts button:hover { background: color-mix(in srgb, var(--c) 28%, transparent); }
 .toast {
-  position: absolute; left: 50%; bottom: var(--gutter); transform: translateX(-50%); z-index: 3;
+  position: absolute; left: 50%; bottom: var(--gutter); transform: translateX(-50%); z-index: 12; /* above full-screen panels on phones */
   max-width: min(520px, calc(100vw - 2 * var(--gutter))); padding: 14px 16px; border-radius: var(--r-m);
   background: var(--sky-1); border: 1px solid var(--haze);
 }
@@ -647,3 +647,22 @@ button { font: inherit; color: inherit; }
   .cert { box-shadow: none; }
   .cert-actions { display: none; }
 }
+/* the HUD row spans the whole bar: only its own controls take clicks, so the panel's close button beneath stays reachable */
+.topbar .hud { pointer-events: none; }
+.topbar .hud > * { pointer-events: auto; }
+.topbar .hud .xp-toast:empty { pointer-events: none; }
+/* scrolling lists inside flex-column panels must be allowed to shrink, or they spill out below the panel */
+.rankings .rank-list, .impact-body, .general .chat, .guide-body { min-height: 0; }
+.rankings .rank-list { flex: 1; }
+@media (max-width: 760px) {
+  /* full-screen side panels on phones sit above the top bar's HUD and map key */
+  .rankings { z-index: 10; }
+  .to-rankings { display: inline-block; padding: 6px 0; min-height: 28px; }
+}
+@media (max-width: 760px) {
+  /* the pin banner carries instructions and refusals: wrap them, keep Cancel on screen */
+  .pick-banner { white-space: normal; width: calc(100vw - 2 * var(--gutter)); justify-content: space-between; }
+}
+/* purchase results stay in view while the shop is scrolled */
+.shop-msg { position: sticky; top: 0; z-index: 1; margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--sky-2); border: 1px solid rgba(143, 227, 168, 0.5); color: var(--ink); }
+.shop-msg.warn { border-color: rgba(242, 209, 58, 0.6); }
