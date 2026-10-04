@@ -197,7 +197,7 @@ export default function App() {
     if (km(d.c, [lon, lat]) > 100) return false
     return d.k !== 'rest' || world.fires.filter((f) => km([lon, lat], [f[0], f[1]]) <= ECO.fieldWatch.beltKm).length >= 3
   }
-  const cancelPick = () => {
+  function cancelPick() {
     setPicking(false)
     openImpact('earn')
   }
@@ -213,7 +213,7 @@ export default function App() {
       /* the button is disabled until a first verified action; a server error leaves it closed */
     }
   }
-  const closeCert = () => {
+  function closeCert() {
     setCert(null)
     const u = new URL(location.href)
     if (u.searchParams.has('cert')) {

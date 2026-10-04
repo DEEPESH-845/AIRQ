@@ -30,10 +30,15 @@ async function subscription() {
   return (await reg.pushManager.getSubscription()) ?? reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(KEY!) })
 }
 
-export async function enableAlerts(district: string): Promise<'on' | 'denied' | 'error'> {
+export async function enableAlerts(district: string): Promise<'on' | 'denied' | 'error' | 'unsupported'> {
   if ((await Notification.requestPermission()) !== 'granted') return 'denied'
+  let sub: PushSubscription
   try {
-    const sub = await subscription()
+    sub = await subscription()
+  } catch {
+    return 'unsupported' // the browser has no push service (e.g. iPhone outside a Home Screen app)
+  }
+  try {
     const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ d: district, sub }) })
     if (!r.ok) return 'error'
     setWatching([...new Set([...watching(), district])])

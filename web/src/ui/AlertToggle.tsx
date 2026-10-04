@@ -8,6 +8,7 @@ const COPY = {
   on: 'Alerts on for this district',
   denied: 'Notifications are blocked. Allow them in your browser settings to get alerts.',
   error: "Couldn't turn on alerts. Check your connection and try again.",
+  unsupported: "This browser can't receive push alerts. Try Chrome, Edge or Firefox; on iPhone, add AIRQ to your Home Screen first.",
 }
 
 export function AlertToggle({ district, name }: { district: string; name: string }) {
@@ -42,7 +43,7 @@ export function AlertToggle({ district, name }: { district: string; name: string
         {state === 'on' || state === 'off' || state === 'busy' ? COPY[state] : COPY.off}
       </button>
       {state === 'on' && <small>We'll push a warning up to a day before AQI in {name} crosses 300. Tap again to stop.</small>}
-      {(state === 'denied' || state === 'error') && <small className="warn">{COPY[state]}</small>}
+      {(state === 'denied' || state === 'error' || state === 'unsupported') && <small className="warn">{COPY[state]}</small>}
     </div>
   )
 }
