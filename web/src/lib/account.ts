@@ -10,7 +10,7 @@ export type Action = (typeof economy.actions)[number]
 export type Item = (typeof economy.shop)[number]
 export type Receipt = { base: number; frontline: number; streak: number; weeks: number; boost: number; mult: number; first: number; credits: number; xp: number; shield: boolean }
 export type Proof = { sk: string; action: string; ok: boolean; reason: string; credits: number }
-export type Claim = { item: string; label: string; code: string; at: number; status: 'review' | 'ready' | 'done' }
+export type Claim = { item: string; label: string; code: string; at: number; status: 'review' | 'ready' | 'done' | 'refunded' }
 export type Me = {
   pid: string; name: string; d: string; dn: string; s: string; title: string; titles: string[]
   xp: number; eco: number; cr: number; wk: string; wxp: number; pt: number
@@ -91,10 +91,17 @@ async function call<T>(path: string, body?: object): Promise<T> {
 }
 const authed = <T>(path: string, body: object = {}) => {
   if (!creds) return Promise.reject(new Error('Enlist first.'))
-  return call<T & { me: Me; proofs?: Proof[] }>(path, { ...creds, ...body }).then((r) => {
-    set({ me: r.me, ...(r.proofs ? { proofs: r.proofs } : {}), status: 'ready' })
-    return r
-  })
+  const mine = creds
+  return call<T & { me: Me; proofs?: Proof[] }>(path, { ...creds, ...body }).then(
+    (r) => {
+      if (creds === mine) set({ me: r.me, ...(r.proofs ? { proofs: r.proofs } : {}), status: 'ready' }) // not after a delete
+      return r
+    },
+    (e) => {
+      if ((e as { status?: number }).status === 401) forgetLocal() // the account is gone on the server
+      throw e
+    },
+  )
 }
 
 export async function enlist(name: string, d: string) {
@@ -118,8 +125,7 @@ export async function sync(xp: number) {
     const r = await authed<{ checkin: number }>('/api/player/sync', { xp })
     return r.checkin
   } catch (e) {
-    if ((e as { status?: number }).status === 401) forgetLocal()
-    else set({ status: 'offline' })
+    if ((e as { status?: number }).status !== 401) set({ status: 'offline' })
     return 0
   }
 }

@@ -8,7 +8,7 @@ const SCOPES = [
   { id: 'all', label: 'All time', hint: 'Total XP: game play plus verified green actions.' },
 ]
 
-/** Players ranked by XP. Game XP is capped per day on the server; verified green actions are uncapped. */
+/** Players ranked by XP. Game XP is capped per day on the server; verified green actions have their own per-action limits. */
 export function Leaderboard({ enlisted, onEnlist }: { enlisted: boolean; onEnlist: () => void }) {
   const [scope, setScope] = useState('week')
   const [board, setBoard] = useState<Board | null>(null)

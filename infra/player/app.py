@@ -11,7 +11,7 @@ Credits only come from things the server can verify (approved photos, server-sid
 browser-reported game play. Game XP from the browser is accepted at most dailyGameXp per IST day.
 Pure economy functions first (checked by check.py), then AWS glue.
 """
-import base64, hashlib, hmac, json, os, re, secrets, time, uuid
+import base64, hashlib, hmac, json, math, os, re, secrets, time, uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -47,7 +47,7 @@ def new_player(pid, th, name, d, now):
     return {'pid': pid, 'th': th, 'name': name, 'd': d['id'], 'dn': d['n'], 's': d['s'], 'title': '', 'titles': [],
             'xp': 0, 'seen': 0, 'eco': 0, 'cr': 0, 'wk': week_id(now), 'wxp': 0, 'day': ist_day(now), 'dxp': 0, 'checkin': '',
             'pt': 0, 'ad': {}, 'aw': {}, 'inv': {}, 'streak': 0, 'swk': '', 'firsts': [], 'n': 0, 'claims': [],
-            'v': 0, 'created': int(now), 'dset': int(now)}
+            'v': 0, 'created': int(now), 'dset': 0}
 
 
 def roll(p, now):
@@ -153,6 +153,23 @@ def buy(p, item_id, now):
         # a person reviews every goodie claim (and its proofs) before a pilot partner fulfils it
         p['claims'].append({'item': item_id, 'label': it['label'], 'code': code, 'at': int(now), 'status': 'review'})
     p['cr'] -= it['cost']
+    return None
+
+
+def review_claim(p, code, status):
+    """A reviewer moves a claim on: 'ready' (approved, partner can fulfil), 'done' (delivered) or 'refund' (turned down)."""
+    c = next((c for c in p['claims'] if c['code'] == code), None)
+    if not c:
+        return 'No such claim.'
+    if c['status'] in ('done', 'refunded'):
+        return f"Claim is already {c['status']}."
+    if status == 'refund':
+        p['cr'] += SHOP[c['item']]['cost']
+        c['status'] = 'refunded'
+    elif status in ('ready', 'done'):
+        c['status'] = status
+    else:
+        return 'Status must be ready, done or refund.'
     return None
 
 
@@ -274,7 +291,10 @@ def save(p, old_v):
     from botocore.exceptions import ClientError
     p['v'] = old_v + 1
     try:
-        players_table().put_item(Item=p, ConditionExpression='attribute_not_exists(pid) OR v = :v', ExpressionAttributeValues={':v': old_v})
+        if old_v == 0:  # brand-new player
+            players_table().put_item(Item=p, ConditionExpression='attribute_not_exists(pid)')
+        else:  # fails if the player was deleted meanwhile, so a racing write can't bring them back
+            players_table().put_item(Item=p, ConditionExpression='v = :v', ExpressionAttributeValues={':v': old_v})
         return True
     except ClientError as e:
         if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
@@ -347,7 +367,7 @@ def recent_proofs(pid):
 
 def do_sync(body):
     xp = body.get('xp')
-    xp = int(xp) if isinstance(xp, (int, float)) and xp >= 0 else 0
+    xp = int(xp) if isinstance(xp, (int, float)) and math.isfinite(xp) and xp >= 0 else 0
     p, paid = mutate(body, lambda p: (sync(p, xp, time.time()), True))
     if not p:
         return reply(401, {'error': 'Unknown player.'})
@@ -485,6 +505,19 @@ def leaderboard(event):
     return reply(200, {'scope': scope, 'week': week_id(time.time()), **board(players, scope, me, time.time())})
 
 
+def review_cli(pid, code, status):
+    """python3 app.py review <pid> <claim code> ready|done|refund   (run with AWS credentials and PLAYERS_TABLE set)"""
+    for _ in range(4):
+        p = get_player(pid)
+        if not p:
+            return 'No such player.'
+        v = p['v']
+        err = review_claim(p, code, status)
+        if err or save(p, v):
+            return err or f"{code}: {status}, {p['cr']} credits"
+    return 'Kept conflicting; try again.'
+
+
 def handler(event, context=None):
     try:
         method = event['requestContext']['http']['method']
@@ -505,3 +538,11 @@ def handler(event, context=None):
     except Exception as e:  # Bedrock, DynamoDB, S3: tell the player plainly, keep the trace in logs
         print(f'[player] {type(e).__name__}: {e}')
         return reply(503, {'error': 'AIRQ HQ is busy right now. Try again in a minute.'})
+
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) == 5 and sys.argv[1] == 'review':
+        print(review_cli(*sys.argv[2:]))
+    else:
+        print(review_cli.__doc__)

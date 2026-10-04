@@ -111,7 +111,7 @@ function Enlist({ world, home }: { world: World; home: District }) {
             </optgroup>
           ))}
         </select>
-        <small>Sets your frontline bonus and district board. You can change it once every 30 days.</small>
+        <small>Sets your frontline bonus and district board. After your first change, it can change once every 30 days.</small>
       </label>
       <button className="primary-btn" disabled={!ok || busy}>
         {busy ? 'Enlisting…' : 'Enlist and get 2 credits'}

@@ -99,7 +99,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
             ))}
           </ol>
           <p className="fine">
-            The leaderboard counts at most {ECO.dailyGameXp} game XP a day per player, so it can't be farmed by tapping. Verified green actions count in full.
+            The leaderboard counts at most {ECO.dailyGameXp} game XP a day per player, so it can't be farmed by tapping. Verified green actions count in full, within their own daily and weekly limits.
           </p>
         </>
       ),
@@ -149,7 +149,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
           <ol className="how-steps">
             <li>Tap its price and confirm. Credits are taken and you get a claim code like AIRQ-K7QP-3MZD.</li>
             <li>A person reviews the claim and your proofs (this stops fake accounts emptying the shop).</li>
-            <li>A partner NGO or sponsor fulfils it, and the claim shows "Ready to collect". Turned down? The credits come back.</li>
+            <li>A partner NGO or sponsor fulfils it, and the claim shows "Approved, ready to collect". Turned down? The reviewer refunds the credits.</li>
           </ol>
           <p className="fine">AIRQ is a pilot and partners are still being onboarded, so delivery isn't guaranteed yet. The shop says so before you claim.</p>
         </>

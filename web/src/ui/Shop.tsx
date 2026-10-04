@@ -83,7 +83,7 @@ export function Shop({ me, onEarn }: { me: Me; onEarn: () => void }) {
               </p>
               <p className="fine">
                 AIRQ is a pilot. A person reviews every claim and your proofs before a partner NGO or sponsor fulfils it, and partners are still being onboarded,
-                so delivery isn't guaranteed yet. If a claim is turned down, its credits come back.
+                so delivery isn't guaranteed yet. If a claim is turned down, the reviewer refunds its credits.
               </p>
               <div className="intro-actions">
                 <button onClick={() => setConfirm(null)}>Cancel</button>
@@ -104,7 +104,7 @@ export function Shop({ me, onEarn }: { me: Me; onEarn: () => void }) {
                 <span>
                   {c.label}
                   <small>
-                    <code>{c.code}</code> · {c.status === 'review' ? 'Under review' : c.status === 'ready' ? 'Ready to collect' : 'Delivered'}
+                    <code>{c.code}</code> · {{ review: 'Under review', ready: 'Approved, ready to collect', done: 'Delivered', refunded: 'Turned down, credits refunded' }[c.status]}
                   </small>
                 </span>
               </li>

@@ -1,6 +1,6 @@
 """Self-check for the player economy. Run: python3 infra/player/check.py"""
 from datetime import datetime, timezone
-from app import ECO, award, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id
+from app import ECO, award, review_claim, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id
 
 at = lambda iso: datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp()
 D = {'id': 'd001', 'n': 'New Delhi', 's': 'Delhi', 'aqi': 320}
@@ -68,8 +68,18 @@ assert buy(b, 'g-n95', t0) is None and b['claims'][0]['status'] == 'review' and 
 assert 'review' in buy(b, 'g-n95', t0)
 assert buy(b, 'g-metro', t0), 'cash-like top-up is not sold'
 
-# home district lock
+# home district: the first change is free, then locked for 30 days
+assert home_movable(new_player('h', 'h', 'Cmdr Home', D, t0), t0 + 60)
+b['dset'] = t0
 assert not home_movable(b, t0 + 86400) and home_movable(b, t0 + 31 * 86400)
+
+# claim review: refund returns the credits once; delivered claims are final
+code = b['claims'][0]['code']
+cr = b['cr']
+assert review_claim(b, code, 'ready') is None and b['claims'][0]['status'] == 'ready'
+assert review_claim(b, code, 'refund') is None and b['cr'] == cr + 250 and b['claims'][0]['status'] == 'refunded'
+assert review_claim(b, code, 'refund') and b['cr'] == cr + 250, 'no double refund'
+assert review_claim(b, 'AIRQ-NOPE-NOPE', 'done') and review_claim(b, code, 'bogus')
 
 # callsigns
 assert clean_name('  Cmdr   Vayu ') == 'Cmdr Vayu' and not clean_name('ab') and not clean_name('x' * 19) and not clean_name('<b>hi</b>')
