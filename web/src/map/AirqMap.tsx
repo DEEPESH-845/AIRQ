@@ -24,7 +24,19 @@ const homePadding = () =>
 const briefPadding = () =>
   innerWidth < 760 ? { top: barBottom(), bottom: 250, left: 12, right: 12 } : { top: 150, bottom: 250, left: 60, right: 60 }
 
-export type Focus = { to: 'india' | [number, number]; brief?: boolean } | null
+export type Focus = { to: 'india' | [number, number]; brief?: boolean; zoom?: number } | null
+export type MapField = { c: [number, number]; r: number; fire: boolean } | null
+
+const GREEN = '#8fe3a8'
+// a field as a 48-point polygon of its real radius (metres)
+function circle([lon, lat]: [number, number], r: number) {
+  const pts: [number, number][] = []
+  for (let i = 0; i <= 48; i++) {
+    const a = (i / 48) * 2 * Math.PI
+    pts.push([lon + (r * Math.cos(a)) / (111320 * Math.cos((lat * Math.PI) / 180)), lat + (r * Math.sin(a)) / 110570])
+  }
+  return { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: [pts] }, properties: {} }
+}
 
 // AQI and raid level are feature properties (not feature-state) so layer filters can pick out raided districts
 const aqiColor = [
@@ -91,6 +103,8 @@ const STYLE: StyleSpecification = {
     traj: { type: 'geojson', lineMetrics: true, data: { type: 'FeatureCollection', features: [] } },
     trajpts: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     clusters: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    community: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    field: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [
     { id: 'sea', type: 'background', paint: { 'background-color': '#14122b' } },
@@ -169,6 +183,33 @@ const STYLE: StyleSpecification = {
       filter: ['==', ['get', 'id'], ''],
       paint: { 'line-color': '#ffffff', 'line-width': 2 },
     },
+    // citizens fighting back: verified green actions in the last 7 days glow at their district
+    {
+      id: 'community-glow',
+      type: 'circle',
+      source: 'community',
+      paint: {
+        'circle-color': GREEN,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['+', 11, ['*', 6, ['sqrt', ['get', 'n']]]], 8, ['+', 20, ['*', 10, ['sqrt', ['get', 'n']]]]],
+        'circle-blur': 0.9,
+        'circle-opacity': 0.55,
+      },
+    },
+    { id: 'community-ring', type: 'circle', source: 'community', filter: ['==', ['get', 'fresh'], 1], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': GREEN, 'circle-stroke-width': 2, 'circle-stroke-opacity': 0.8 } },
+    { id: 'community-core', type: 'circle', source: 'community', paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3.2, 8, 5], 'circle-color': '#eafff0', 'circle-stroke-color': GREEN, 'circle-stroke-width': 1.5 } },
+    {
+      id: 'community-count',
+      type: 'symbol',
+      source: 'community',
+      minzoom: 4.6,
+      layout: { 'text-field': ['concat', ['to-string', ['get', 'n']], ' ✓'], 'text-font': ['Open Sans Semibold'], 'text-size': 11, 'text-offset': [0, -1.3], 'text-allow-overlap': false },
+      paint: { 'text-color': GREEN, 'text-halo-color': 'rgba(20,18,43,0.9)', 'text-halo-width': 1.4 },
+    },
+    { id: 'field-fill', type: 'fill', source: 'field', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': ['case', ['get', 'fire'], '#e5383b', GREEN], 'fill-opacity': 0.35 } },
+    { id: 'field-line', type: 'line', source: 'field', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'line-color': ['case', ['get', 'fire'], '#e5383b', GREEN], 'line-width': 2.5 } },
+    // a field is tiny at country scale: a pin keeps it findable
+    { id: 'field-pin', type: 'circle', source: 'field', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 8, 'circle-color': 'rgba(20,18,43,0.6)', 'circle-stroke-color': ['case', ['get', 'fire'], '#e5383b', GREEN], 'circle-stroke-width': 3 } },
+    { id: 'field-label', type: 'symbol', source: 'field', filter: ['==', ['geometry-type'], 'Point'], layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Semibold'], 'text-size': 12, 'text-offset': [0, 1.5], 'text-anchor': 'top' }, paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(20,18,43,0.9)', 'text-halo-width': 1.5 } },
     { id: 'traj-glow', type: 'line', source: 'traj', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 14, 'line-blur': 10, 'line-opacity': 0.45, 'line-gradient': trajGradient(0) as never } },
     { id: 'traj-line', type: 'line', source: 'traj', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': 3, 'line-gradient': trajGradient(0) as never } },
     { id: 'clusters-ring', type: 'circle', source: 'clusters', paint: { 'circle-radius': 14, 'circle-color': 'rgba(255,122,26,0.12)', 'circle-stroke-color': '#ff7a1a', 'circle-stroke-width': 2 } },
@@ -212,9 +253,15 @@ type Props = {
   trace: District | null
   highlight: string[]
   focus?: Focus
+  /** district id -> verified actions in the last 7 days; fresh ones pulse */
+  community?: Record<string, number>
+  fresh?: string[]
+  field?: MapField
+  /** when set, a map tap picks a point (Fire Watch) instead of selecting a district */
+  onPick?: ((lon: number, lat: number) => void) | null
 }
 
-export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight, focus = null }: Props) {
+export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight, focus = null, community = {}, fresh = [], field = null, onPick = null }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const tip = useRef<HTMLDivElement>(null)
@@ -222,6 +269,8 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
   const [ready, setReady] = useState(false)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
+  const onPickRef = useRef(onPick)
+  onPickRef.current = onPick
   const byId = useRef(new Map<string, District>())
   byId.current = new Map(world.districts.map((d) => [d.id, d]))
 
@@ -254,7 +303,7 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
         hovered = id
         map.setFeatureState({ source: 'districts', id }, { hover: true })
       }
-      map.getCanvas().style.cursor = 'pointer'
+      map.getCanvas().style.cursor = onPickRef.current ? 'crosshair' : 'pointer'
       const d = byId.current.get(id)
       const t = tip.current
       if (t && d) {
@@ -273,8 +322,9 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     map.on('movestart', () => tip.current && (tip.current.dataset.show = 'false'))
     map.on('click', 'districts', (e) => {
       const f = e.features?.[0]
-      if (f) onSelectRef.current(String(f.id))
+      if (f && !onPickRef.current) onSelectRef.current(String(f.id))
     })
+    map.on('click', (e) => onPickRef.current?.(e.lngLat.lng, e.lngLat.lat))
     return () => map.remove()
   }, [])
 
@@ -366,6 +416,52 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     else map.fitBounds(INDIA, { padding: homePadding(), duration: 1200 })
   }, [selected, ready, panelOpen, world])
 
+  // citizens fighting back, and the Fire Watch field
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    ;(map.getSource('community') as GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: Object.entries(community).flatMap(([id, n]) => {
+        const d = byId.current.get(id)
+        return d ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: d.c }, properties: { n, fresh: fresh.includes(id) ? 1 : 0 } }] : []
+      }),
+    })
+  }, [community, fresh, ready, world])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    ;(map.getSource('field') as GeoJSONSource).setData(
+      field
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              { ...circle(field.c, field.r), properties: { fire: field.fire } },
+              { type: 'Feature', geometry: { type: 'Point', coordinates: field.c }, properties: { fire: field.fire, label: field.fire ? 'Your field: fire seen' : 'Your field: fire-free' } },
+            ],
+          }
+        : empty,
+    )
+  }, [field, ready])
+  // new actions send a ripple out from their district (constant paint values only: no re-layout)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !fresh.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let raf = 0
+    const frame = (t: number) => {
+      const p = (t % 2000) / 2000
+      map.setPaintProperty('community-ring', 'circle-radius', 6 + 30 * p)
+      map.setPaintProperty('community-ring', 'circle-stroke-opacity', 0.9 * (1 - p))
+      raf = requestAnimationFrame(frame)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
+  }, [fresh, ready])
+  useEffect(() => {
+    const c = mapRef.current?.getCanvas()
+    if (c) c.style.cursor = onPick ? 'crosshair' : ''
+  }, [onPick])
+
   // briefing camera: whole India, or fly to a point
   useEffect(() => {
     const map = mapRef.current
@@ -374,7 +470,7 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
     const mobile = innerWidth < 760
     map.flyTo({
       center: focus.to,
-      zoom: 6.4,
+      zoom: focus.zoom ?? 6.4,
       padding: mobile ? { top: 90, bottom: Math.round(innerHeight * 0.45), left: 20, right: 20 } : { top: 90, bottom: 240, left: 40, right: 40 },
       duration: 1600,
     })

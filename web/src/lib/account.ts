@@ -16,7 +16,13 @@ export type Me = {
   xp: number; eco: number; cr: number; wk: string; wxp: number; pt: number
   ad: Record<string, number>; aw: Record<string, number>; inv: { boost?: number; shield?: number }
   streak: number; swk: string; firsts: string[]; n: number; claims: Claim[]; dset: number
+  life?: Record<string, number>; earned?: number; field?: Field | null
 }
+export type Field = { c: [number, number]; acres: number; r: number; d: string; dn: string; at: number; last: string; clean: number; burnt: string[] }
+export type FieldResult = { status: 'clean' | 'fire' | 'cooldown' | 'done'; receipt: { credits?: number; xp?: number; days?: number; fires?: number; until?: string } | null }
+export type FeedItem = { name: string; title: string; action: string; d: string; dn: string; s: string; at: string }
+export type Feed = { recent: FeedItem[]; byDistrict: Record<string, number>; byAction: Record<string, number>; total: number }
+export type Cert = { id: string; name: string; title: string; where: string; actions: number; life: Record<string, number>; earned: number; xp: number; streak: number; fieldDays: number; since: number; iat: number }
 export type Row = { rank: number; name: string; title?: string; where?: string; players?: number; score: number; me: boolean }
 export type Board = { scope: string; week: string; rows: Row[]; me: Row | null }
 
@@ -73,14 +79,13 @@ try {
 }
 if (creds) state = { ...state, status: 'loading' }
 
-export const useAccount = () =>
-  useSyncExternalStore(
-    (f) => {
-      subs.add(f)
-      return () => void subs.delete(f)
-    },
-    () => state,
-  )
+// subscribe functions live at module scope: a new function each render would make React re-subscribe every render
+const subscribe = (f: () => void) => {
+  subs.add(f)
+  return () => void subs.delete(f)
+}
+const snapshot = () => state
+export const useAccount = () => useSyncExternalStore(subscribe, snapshot)
 export const getAccount = () => state
 
 async function call<T>(path: string, body?: object): Promise<T> {
@@ -92,9 +97,10 @@ async function call<T>(path: string, body?: object): Promise<T> {
 const authed = <T>(path: string, body: object = {}) => {
   if (!creds) return Promise.reject(new Error('Enlist first.'))
   const mine = creds
-  return call<T & { me: Me; proofs?: Proof[] }>(path, { ...creds, ...body }).then(
+  return call<T & { me?: Me; proofs?: Proof[] }>(path, { ...creds, ...body }).then(
     (r) => {
-      if (creds === mine) set({ me: r.me, ...(r.proofs ? { proofs: r.proofs } : {}), status: 'ready' }) // not after a delete
+      // not after a delete; responses without a player (certificates, codes) leave the player as is
+      if (creds === mine && r.me) set({ me: r.me, ...(r.proofs ? { proofs: r.proofs } : {}), status: 'ready' })
       return r
     },
     (e) => {
@@ -132,6 +138,11 @@ export async function sync(xp: number) {
 
 export const submitProof = (action: string, image: string) =>
   authed<{ ok: boolean; reason: string; receipt: Receipt | null }>('/api/proof', { action, image })
+export const getChallenge = (action: string) => authed<{ code: string; exp: number }>('/api/proof/challenge', { action })
+export const registerField = (lon: number, lat: number, acres: number) => authed('/api/field', { lon, lat, acres })
+export const checkField = () => authed<FieldResult>('/api/field/check')
+export const issueCert = () => authed<{ token: string }>('/api/cert')
+export const verifyCert = (t: string) => call<{ valid: boolean; cert: Cert | null }>(`/api/cert?t=${encodeURIComponent(t)}`)
 export const buy = (item: string) => authed('/api/shop', { item })
 export const equip = (item: string) => authed('/api/shop', { equip: item })
 export const fetchBoard = (scope: string) => call<Board>(`/api/leaderboard?scope=${scope}${creds ? `&pid=${encodeURIComponent(creds.pid)}` : ''}`)
@@ -150,3 +161,31 @@ export async function deleteAccount() {
   await call('/api/player/delete', creds)
   forgetLocal()
 }
+
+// ---------- the public feed of verified actions, polled while anything shows it
+let feed: Feed | null = null
+const feedSubs = new Set<() => void>()
+let feedTimer = 0
+async function pollFeed() {
+  try {
+    feed = await call<Feed>('/api/feed')
+    feedSubs.forEach((f) => f())
+  } catch {
+    /* offline: keep the last feed */
+  }
+}
+export const refreshFeed = pollFeed
+const subscribeFeed = (f: () => void) => {
+  feedSubs.add(f)
+  if (feedSubs.size === 1) {
+    if (!feed) void pollFeed()
+    feedTimer = window.setInterval(pollFeed, 30000)
+  }
+  return () => {
+    feedSubs.delete(f)
+    if (!feedSubs.size) clearInterval(feedTimer)
+  }
+}
+const feedSnapshot = () => feed
+export const useFeed = () => useSyncExternalStore(subscribeFeed, feedSnapshot)
+export const actionLabel = (id: string) => (id === 'fieldwatch' ? 'Kept a field fire-free (satellite)' : (ECO.actions.find((a) => a.id === id)?.label ?? id))

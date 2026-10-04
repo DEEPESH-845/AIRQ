@@ -1,9 +1,10 @@
 import type { World } from '../lib/world'
 import { CATS, catIndex } from '../lib/naqi'
 import { frontTrend } from '../lib/story'
+import { CitizenTicker } from './Citizens'
 
 /** Bottom-left instrument: how India's districts split across the NAQI bands, doubling as the legend. */
-export function NationalReadout({ world, onSelect, onRankings }: { world: World; onSelect: (id: string) => void; onRankings: () => void }) {
+export function NationalReadout({ world, onSelect, onRankings, onImpact }: { world: World; onSelect: (id: string) => void; onRankings: () => void; onImpact: () => void }) {
   const counts = CATS.map(() => 0)
   for (const d of world.districts) counts[catIndex(d.aqi)]++
   const total = world.districts.length
@@ -54,6 +55,7 @@ export function NationalReadout({ world, onSelect, onRankings }: { world: World;
           ))}
         </div>
       )}
+      <CitizenTicker onOpen={onImpact} />
       <button className="to-rankings" onClick={onRankings}>
         See all rankings
       </button>

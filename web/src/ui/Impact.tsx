@@ -4,6 +4,7 @@ import { enlist, useAccount } from '../lib/account'
 import { Earn } from './Earn'
 import { Shop } from './Shop'
 import { Leaderboard } from './Leaderboard'
+import type { Pick } from './FireWatch'
 
 export type ImpactTab = 'earn' | 'shop' | 'leaders'
 const TABS: { id: ImpactTab; label: string }[] = [
@@ -13,7 +14,7 @@ const TABS: { id: ImpactTab; label: string }[] = [
 ]
 
 /** Real-world green actions, credits, the shop and the player leaderboard. */
-export function Impact({ world, tab, onTab, home, onClose }: { world: World; tab: ImpactTab; onTab: (t: ImpactTab) => void; home: District; onClose: () => void }) {
+export function Impact({ world, tab, onTab, home, onClose, pick, onPickField, onShowField, onCert }: { world: World; tab: ImpactTab; onTab: (t: ImpactTab) => void; home: District; onClose: () => void; pick: Pick | null; onPickField: () => void; onShowField: () => void; onCert: () => void }) {
   const { me, status } = useAccount()
   return (
     <aside className="rankings impact" aria-label="Impact">
@@ -49,7 +50,7 @@ export function Impact({ world, tab, onTab, home, onClose }: { world: World; tab
         ) : !me ? (
           <Enlist world={world} home={home} />
         ) : tab === 'earn' ? (
-          <Earn world={world} me={me} />
+          <Earn world={world} me={me} pick={pick} onPickField={onPickField} onShowField={onShowField} onCert={onCert} />
         ) : (
           <Shop me={me} onEarn={() => onTab('earn')} />
         )}

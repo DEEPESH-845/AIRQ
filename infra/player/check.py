@@ -1,6 +1,7 @@
 """Self-check for the player economy. Run: python3 infra/player/check.py"""
 from datetime import datetime, timezone
-from app import ECO, award, review_claim, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id
+from app import (ECO, award, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
+                 hamming, field_error, make_field, fires_on_field, field_check, sign_cert, read_cert, cert_payload, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id)
 
 at = lambda iso: datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp()
 D = {'id': 'd001', 'n': 'New Delhi', 's': 'Delhi', 'aqi': 320}
@@ -99,4 +100,72 @@ assert st['rows'][0] == {'name': 'Delhi', 'score': sum(i * 10 for i in range(1, 
 Z = [dict(new_player('z1', 'h', 'Zero', D, t0), wxp=0), dict(new_player('s1', 'h', 'Scorer', D, t0), wxp=5), dict(new_player('m1', 'h', 'Me', D, t0), wxp=0)]
 zb = board(Z, 'week', Z[2], t0)
 assert [(r['name'], r['rank']) for r in zb['rows']] == [('Scorer', 1), ('Me', 2)], zb
+# challenge codes: high-value actions need a live code for that action; reading tolerates spacing and 0/O, 1/I
+c = new_player('k', 'h', 'Cmdr Code', D, t0)
+assert challenge_error(c, 'cycle', t0) is None, 'low-value actions need no code'
+assert challenge_error(c, 'tree', t0)
+code = new_challenge(c, 'tree', t0)
+assert challenge_error(c, 'tree', t0 + 60) is None and challenge_error(c, 'stubble', t0) and challenge_error(c, 'tree', t0 + 901)
+assert code_matches(c, ' ' + code[:2] + ' ' + code[2:].lower()) and not code_matches(c, 'ZZZZ') and not code_matches(c, '')
+c['ch']['code'] = 'KO7I'
+assert code_matches(c, 'k07 1')
+c['ch']['code'] = 'DKVL'
+assert code_matches(c, 'DKVVL') and code_matches(c, 'DKV') and code_matches(c, 'Code: DKXL') and not code_matches(c, 'ABCD') and not code_matches(c, 'D')
+# DynamoDB-safe floats (field coordinates)
+from app import ddb
+from decimal import Decimal
+assert ddb({'c': [76.98, 29.69], 'acres': 5.5, 'n': 3}) == {'c': [Decimal('76.98'), Decimal('29.69')], 'acres': Decimal('5.5'), 'n': 3}
+
+# photo fingerprints: a re-encoded, resized copy matches; a different scene doesn't; blank images are refused
+import io
+from PIL import Image, ImageDraw
+def scene(seed):
+    im = Image.new('RGB', (900, 700), (40, 120, 60))
+    d = ImageDraw.Draw(im)
+    for i in range(40):
+        x, y = (i * 97 * seed) % 900, (i * 53 * seed) % 700
+        d.ellipse([x, y, x + 60 + i, y + 40 + i], fill=((i * 31 * seed) % 255, (i * 17) % 255, (i * 7 * seed) % 255))
+    return im
+def jpeg(im, q=90):
+    b = io.BytesIO(); im.save(b, 'JPEG', quality=q); return b.getvalue()
+a_img, a_h = normalise(jpeg(scene(3)))
+_, a2_h = normalise(jpeg(scene(3).resize((450, 350)), q=50))
+_, b_h = normalise(jpeg(scene(7)))
+assert a_img[:3] == b'\xff\xd8\xff' and hamming(a_h, a2_h) <= 8 and near_duplicate(a2_h, [a_h + ':x'])
+assert not near_duplicate(b_h, [a_h + ':x']), (a_h, b_h)
+_, blank = normalise(jpeg(Image.new('RGB', (400, 300), (0, 0, 0))))
+assert low_information(blank) and not low_information(a_h)
+png = io.BytesIO(); scene(3).save(png, 'PNG'); assert normalise(png.getvalue())[0][:2] == b'\xff\xd8', 'PNG is re-encoded to JPEG'
+try:
+    normalise(b'not an image'); raise AssertionError('garbage accepted')
+except ValueError:
+    pass
+
+# Fire Watch: belt only, sane size; fires inside the field (plus a VIIRS pixel) count; clean days pay once a day; a fire starts a cooldown
+igp = {'id': 'd900', 'n': 'Karnal', 's': 'Haryana', 'k': 'igp', 'c': [76.98, 29.69]}
+south = {'id': 'd901', 'n': 'Ernakulam', 's': 'Kerala', 'k': 'rest', 'c': [76.3, 10.0]}
+assert field_error(76.98, 29.69, 5, igp, []) is None
+assert field_error(76.3, 10.0, 5, south, []) and field_error(76.3, 10.0, 5, south, [[76.31, 10.01, 2, 3]] * 3) is None
+assert field_error(76.98, 29.69, 500, igp, []) and field_error(10, 10, 5, igp, [])
+fp = new_player('f1', 'h', 'Farmer One', D, t0)
+fp['field'] = make_field(76.98, 29.69, 5, igp, t0)
+assert 75 < fp['field']['r'] < 85  # 5 acres (20,234 m²) is a circle of ~80 m
+on = [76.98 + 0.004, 29.69, 5, 3]   # ~390 m east: inside 80 m radius + 375 m buffer
+off = [76.98 + 0.02, 29.69, 5, 3]   # ~1.9 km
+old = [76.98, 29.69, 5, 30]         # on the field but 30 h ago
+assert len(fires_on_field(fp['field'], [on, off, old])) == 1
+st, r = field_check(fp, [off, old], t0)
+assert st == 'clean' and r['credits'] == ECO['fieldWatch']['credits'] and fp['cr'] == ECO['fieldWatch']['credits'] and fp['life']['fieldwatch'] == 1
+assert field_check(fp, [], t0)[0] == 'done', 'once a day'
+assert field_check(fp, [on], t0 + 86400)[0] == 'fire'
+assert field_check(fp, [], t0 + 3 * 86400)[0] == 'cooldown'
+assert field_check(fp, [], t0 + 8 * 86400)[0] == 'clean'
+
+# certificates: verifiable, tamper-evident, wrong secret fails
+tok = sign_cert(cert_payload(fp, t0), 's3cret')
+assert read_cert(tok, 's3cret')['name'] == 'Farmer One' and read_cert(tok, 'other') is None
+body, sig = tok.split('.')
+import base64, json as _j
+forged = base64.urlsafe_b64encode(_j.dumps({**read_cert(tok, 's3cret'), 'earned': 99999}).encode()).rstrip(b'=').decode()
+assert read_cert(forged + '.' + sig, 's3cret') is None and read_cert('junk', 's3cret') is None
 print('ok')

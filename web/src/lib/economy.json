@@ -8,7 +8,8 @@
       "perDay": 1,
       "perWeek": 1,
       "photo": "Happy Seeder, baler or decomposer at work, or residue mulched into an unburnt field",
-      "why": "Stubble smoke is the biggest single source in Punjab-Haryana-Delhi in Oct-Nov."
+      "why": "Stubble smoke is the biggest single source in Punjab-Haryana-Delhi in Oct-Nov.",
+      "challenge": true
     },
     {
       "id": "cleancook",
@@ -18,7 +19,8 @@
       "perDay": 1,
       "perWeek": 1,
       "photo": "The new LPG or induction stove in use in a home kitchen",
-      "why": "Wood and dung stoves fill homes and villages with PM2.5."
+      "why": "Wood and dung stoves fill homes and villages with PM2.5.",
+      "challenge": true
     },
     {
       "id": "tree",
@@ -28,7 +30,8 @@
       "perDay": 2,
       "perWeek": 14,
       "photo": "The sapling freshly planted in the ground, with soil, hands or a tool in frame",
-      "why": "Trees catch dust and cool streets for decades, if they survive."
+      "why": "Trees catch dust and cool streets for decades, if they survive.",
+      "challenge": true
     },
     {
       "id": "cleanup",
@@ -38,7 +41,8 @@
       "perDay": 1,
       "perWeek": 7,
       "photo": "People collecting litter, or filled garbage bags at the site",
-      "why": "Litter that is cleared is litter that never gets burned."
+      "why": "Litter that is cleared is litter that never gets burned.",
+      "challenge": true
     },
     {
       "id": "puc",
@@ -48,7 +52,8 @@
       "perDay": 1,
       "perWeek": 1,
       "photo": "The PUC certificate or the vehicle at the testing centre",
-      "why": "A tuned engine emits far less soot and NOx."
+      "why": "A tuned engine emits far less soot and NOx.",
+      "challenge": true
     },
     {
       "id": "burning",
@@ -58,7 +63,8 @@
       "perDay": 2,
       "perWeek": 14,
       "photo": "The burning waste pile or its smoke, photographed at the site",
-      "why": "Open waste fires are a large, fixable winter source."
+      "why": "Open waste fires are a large, fixable winter source.",
+      "challenge": true
     },
     {
       "id": "cycle",
@@ -68,7 +74,8 @@
       "perDay": 2,
       "perWeek": 14,
       "photo": "Your bicycle on the road or path, or your walking route",
-      "why": "Every trip off the road is exhaust that never happens."
+      "why": "Every trip off the road is exhaust that never happens.",
+      "challenge": false
     },
     {
       "id": "treecare",
@@ -78,7 +85,8 @@
       "perDay": 1,
       "perWeek": 7,
       "photo": "A young tree being watered, or with a tree guard",
-      "why": "Most planted saplings die in the first year without care."
+      "why": "Most planted saplings die in the first year without care.",
+      "challenge": false
     },
     {
       "id": "transit",
@@ -88,7 +96,8 @@
       "perDay": 2,
       "perWeek": 14,
       "photo": "Inside the metro or bus, or the station platform",
-      "why": "One bus replaces dozens of cars on the road."
+      "why": "One bus replaces dozens of cars on the road.",
+      "challenge": false
     },
     {
       "id": "compost",
@@ -98,7 +107,8 @@
       "perDay": 1,
       "perWeek": 7,
       "photo": "Separate wet and dry bins, or your compost pit or bin",
-      "why": "Segregated waste gets recycled instead of burned at the dump."
+      "why": "Segregated waste gets recycled instead of burned at the dump.",
+      "challenge": false
     },
     {
       "id": "carpool",
@@ -108,7 +118,8 @@
       "perDay": 1,
       "perWeek": 7,
       "photo": "Several people sharing one car, cab or auto",
-      "why": "Fewer cars, less exhaust and less road dust."
+      "why": "Fewer cars, less exhaust and less road dust.",
+      "challenge": false
     }
   ],
   "dailyProofs": 6,
@@ -200,5 +211,14 @@
     }
   ],
   "multiplierCap": 3,
-  "homeLockDays": 30
+  "homeLockDays": 30,
+  "fieldWatch": {
+    "credits": 10,
+    "xp": 5,
+    "acresMin": 0.5,
+    "acresMax": 50,
+    "beltKm": 50,
+    "bufferM": 375,
+    "cooldownDays": 7
+  }
 }

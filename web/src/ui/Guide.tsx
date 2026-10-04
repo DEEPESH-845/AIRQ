@@ -4,7 +4,7 @@ import { CATS, catIndex } from '../lib/naqi'
 import { ECO, estimate, useAccount } from '../lib/account'
 import { RANKS, usePlayer, type MissionId } from '../lib/player'
 
-export type ShowTarget = 'map' | 'orders' | 'battle' | MissionId | 'earn' | 'shop' | 'leaders'
+export type ShowTarget = 'map' | 'orders' | 'battle' | MissionId | 'earn' | 'shop' | 'leaders' | 'field'
 type Chapter = { id: string; title: string; done?: boolean; show?: [ShowTarget, string][]; body: ReactNode }
 
 const goodies = ECO.shop.filter((s) => s.kind === 'goodie')
@@ -115,16 +115,58 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
           <ol className="how-steps">
             <li><b>Enlist</b> with a callsign and home district (no email or password).</li>
             <li>Do something that cuts air pollution: plant a tree, cycle instead of driving, manage stubble without burning, report a waste fire, and more.</li>
-            <li><b>Photograph it</b> and send it from the Earn tab. Amazon Nova AI checks that the photo shows that action.</li>
-            <li>Approved: credits and XP land at once, with a receipt showing every bonus. Rejected: you see why, and can try a new photo.</li>
+            <li>For high-value actions (marked <em className="code-chip">code</em>), tap <b>Get my one-time code</b> and write it by hand on paper.</li>
+            <li><b>Photograph it</b> with AIRQ's camera, the code in frame. Five checks run on our server (next chapter).</li>
+            <li>Approved: credits and XP land at once, with a receipt showing every bonus, and your district glows green on the national map.</li>
           </ol>
           <h3>Photos that pass</h3>
           <ul>
-            <li>Fresh, taken now, in daylight, with the action clearly in frame (the sapling in soil, the bike on the road).</li>
-            <li>No screenshots, photos of screens, stock or downloaded images. Every photo works once: re-sending it is rejected.</li>
-            <li>Leave faces and number plates out. Location data is stripped before upload; photos stay private.</li>
+            <li>Fresh, taken now, in daylight, with the action clearly in frame (the sapling in soil, the bike on the road) and the code readable.</li>
+            <li>No screenshots, photos of screens, stock, downloaded or AI images. Every photo works once, even resized or re-saved.</li>
+            <li>Leave faces and number plates out. Location data is stripped; photos stay private.</li>
           </ul>
           <p className="fine">Limits: {ECO.dailyProofs} proofs a day, and each action has its own daily or weekly cap.</p>
+        </>
+      ),
+    },
+    {
+      id: 'firewatch',
+      title: 'Fire Watch from space',
+      done: !!me?.field,
+      show: [['field', me?.field ? 'Show my field' : 'Pin my field']],
+      body: (
+        <>
+          <p>
+            Stubble burning is the biggest single source of Delhi-region smoke in October and November. Fire Watch pays farmers for <b>not</b> burning, and
+            needs no photo: NASA's VIIRS satellites, which AIRQ already reads every 4 hours, are the witness.
+          </p>
+          <ol className="how-steps">
+            <li>Pin your field on the map and set its size. It must be in the crop-burning belt, and it stays fixed once registered.</li>
+            <li>Once a day, run the satellite check. No fire on your field (plus a 375 m margin, one satellite pixel) in the last 24 h: +{ECO.fieldWatch.credits} credits.</li>
+            <li>A fire on the field pauses rewards for {ECO.fieldWatch.cooldownDays} days. Your fire-free days go on your impact certificate.</li>
+          </ol>
+          <p className="fine">Why it's hard to cheat: you can't fake a satellite pass, the field can't move, and fields outside the burning belt can't register.</p>
+        </>
+      ),
+    },
+    {
+      id: 'honest',
+      title: 'How we keep it honest',
+      body: (
+        <>
+          <p>Credits buy real goodies, so every proof goes through checks on AIRQ's server before a single credit moves:</p>
+          <table className="guide-table">
+            <tbody>
+              <tr><td>Live camera</td><td>Proofs are taken in AIRQ's own camera, not uploaded from a gallery when a camera is available.</td></tr>
+              <tr><td>One-time code</td><td>High-value actions need a fresh 4-character code, handwritten and visible in the photo. Valid 15 minutes, one photo. A downloaded image can't contain it.</td></tr>
+              <tr><td>Fingerprint</td><td>Every approved photo gets a perceptual fingerprint. A copy that's resized, re-saved or lightly edited still matches and is refused.</td></tr>
+              <tr><td>Re-encoding</td><td>The server rebuilds every photo from pixels, stripping hidden data, location and anything else riding along.</td></tr>
+              <tr><td>AI judge</td><td>Amazon Nova checks for screens, prints and AI-generated images, then whether the photo shows the action. Text in a photo can't instruct it.</td></tr>
+              <tr><td>Limits</td><td>{ECO.dailyProofs} proofs a day, per-action caps, multipliers capped at ×{ECO.multiplierCap}, and one-account-per-network limits.</td></tr>
+              <tr><td>Humans</td><td>A random 5% of approvals are flagged for spot checks, and every goodie claim is reviewed by a person.</td></tr>
+              <tr><td>Satellites</td><td>Where a data source exists, it replaces the photo: Fire Watch uses NASA VIIRS.</td></tr>
+            </tbody>
+          </table>
         </>
       ),
     },
@@ -152,6 +194,27 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
             <li>A partner NGO or sponsor fulfils it, and the claim shows "Approved, ready to collect". Turned down? The reviewer refunds the credits.</li>
           </ol>
           <p className="fine">AIRQ is a pilot and partners are still being onboarded, so delivery isn't guaranteed yet. The shop says so before you claim.</p>
+        </>
+      ),
+    },
+    {
+      id: 'cert',
+      title: 'Certificate and cities',
+      body: (
+        <>
+          <p>
+            Your <b>impact certificate</b> is a signed snapshot of everything you've verified: actions, fire-free field days, credits earned. Its QR code opens
+            a page that asks AIRQ's server whether the signature is genuine, so nobody can inflate it.
+          </p>
+          <h3>Where this is going: Clean Air Credits</h3>
+          <p>AIRQ is built so a city or state can adopt it:</p>
+          <ul>
+            <li><b>One person, one wallet</b> through DigiLocker consent (never storing an Aadhaar number), ending fake accounts.</li>
+            <li><b>Credits paid out as e-RUPI vouchers</b> for metro passes, saplings or emission tests, or as property-tax rebates like Pune's 5–10% for solar and composting.</li>
+            <li><b>Funded by company CSR</b> (environmental sustainability is an approved CSR area), with audited, verified impact numbers in return.</li>
+            <li><b>Credits add perks, never gate entitlements</b>: no welfare scheme ever depends on them.</li>
+          </ul>
+          <p className="fine">These are not carbon credits: India's Green Credit Programme covers forest-land plantations only. Clean Air Credits are a separate, citizen-scale scheme.</p>
         </>
       ),
     },

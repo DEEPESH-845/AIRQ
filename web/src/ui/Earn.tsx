@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { World } from '../lib/world'
 import { catOf } from '../lib/naqi'
-import { ECO, deleteAccount, estimate, frontline, shrink, streakIfActNow, submitProof, useAccount, type Me, type Receipt } from '../lib/account'
+import { ECO, actionLabel as label, deleteAccount, estimate, frontline, getChallenge, refreshFeed, streakIfActNow, submitProof, useAccount, type Me, type Receipt } from '../lib/account'
+import { Camera } from './Camera'
+import { FireWatch, type Pick } from './FireWatch'
 
-const label = (id: string) => ECO.actions.find((a) => a.id === id)?.label ?? id
+// what the server checks, shown while it works (the order it runs them in)
+const CHECKS = ['Photo decoded and re-encoded, location data removed', 'Fingerprint: never used before, not even a resized copy', 'Not a screen, print or AI image', 'One-time code read from the photo', 'Shows the action you picked']
 const x = (n: number) => `×${Number(n.toFixed(2))}`
 
 /** Pick a green action, photograph it, and let Nova Lite check it. Credits arrive on approval. */
-export function Earn({ world, me }: { world: World; me: Me }) {
+export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onCert }: { world: World; me: Me; pick: Pick | null; onPickField: () => void; onShowField: () => void; onCert: () => void }) {
   const { proofs } = useAccount()
   const home = world.districts.find((d) => d.id === me.d)
   const aqi = home?.aqi ?? 0
@@ -18,21 +21,37 @@ export function Earn({ world, me }: { world: World; me: Me }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; reason: string; receipt: Receipt | null } | null>(null)
   const [err, setErr] = useState('')
-  const file = useRef<HTMLInputElement>(null)
+  const [code, setCode] = useState<{ code: string; exp: number; action: string } | null>(null)
+  const [step, setStep] = useState(0)
   const action = ECO.actions.find((a) => a.id === pick)
+  const needsCode = !!action?.challenge
+  const liveCode = code && code.action === pick && code.exp * 1000 > Date.now() ? code.code : undefined
   const left = ECO.dailyProofs - me.pt
   const boost = (me.inv.boost ?? 0) > 0
 
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
+  // walk the checklist while the server works; it stops on the last step until the answer lands
+  useEffect(() => {
+    if (!busy) return
+    setStep(0)
+    const t = setInterval(() => setStep((k) => Math.min(k + 1, CHECKS.length - 1)), 900)
+    return () => clearInterval(t)
+  }, [busy])
 
-  const choose = async (f: File | undefined) => {
-    setErr('')
+  const choose = (id: string) => {
+    setPick(id)
+    setPhoto(null)
     setResult(null)
-    if (!f) return
+    setErr('')
+  }
+  const fetchCode = async () => {
+    if (!action) return
+    setErr('')
     try {
-      setPhoto({ b64: await shrink(f), url: URL.createObjectURL(f) })
-    } catch {
-      setErr("This browser couldn't read that photo. Try a JPEG or PNG.")
+      const c = await getChallenge(action.id)
+      setCode({ ...c, action: action.id })
+    } catch (e) {
+      setErr((e as Error).message)
     }
   }
   const send = async () => {
@@ -40,9 +59,11 @@ export function Earn({ world, me }: { world: World; me: Me }) {
     setBusy(true)
     setErr('')
     try {
-      setResult(await submitProof(action.id, photo.b64))
+      const r = await submitProof(action.id, photo.b64)
+      setResult(r)
       setPhoto(null)
-      if (file.current) file.current.value = ''
+      if (needsCode) setCode(null) // codes are single-use
+      if (r.ok) void refreshFeed()
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -99,9 +120,10 @@ export function Earn({ world, me }: { world: World; me: Me }) {
           const gain = estimate(a, aqi, weeks, !me.firsts.includes(a.id), boost)
           return (
             <li key={a.id}>
-              <button role="radio" aria-checked={pick === a.id} disabled={capped || left <= 0} onClick={() => setPick(a.id)}>
+              <button role="radio" aria-checked={pick === a.id} disabled={capped || left <= 0} onClick={() => choose(a.id)}>
                 <span>
                   {a.label}
+                  {a.challenge && <em className="code-chip">code</em>}
                   <small>{capped ? (week >= a.perWeek ? 'Weekly limit reached' : 'Done for today') : `${a.perDay - day} left today${a.perWeek < 7 ? `, ${a.perWeek}/week` : ''}`}</small>
                 </span>
                 <b>+{gain}</b>
@@ -116,20 +138,63 @@ export function Earn({ world, me }: { world: World; me: Me }) {
           <p className="lede">
             <b>Photo needed:</b> {action.photo}. <small>{action.why}</small>
           </p>
-          <label className="photo-pick">
-            <input ref={file} type="file" accept="image/*" capture="environment" onChange={(e) => choose(e.target.files?.[0])} />
-            {photo ? <img src={photo.url} alt="Your proof photo" /> : <span>Take or choose a photo</span>}
-          </label>
-          <button className="primary-btn" disabled={!photo || busy} onClick={send}>
-            {busy ? 'Checking your photo…' : `Send for verification`}
-          </button>
+          {needsCode && !liveCode && !busy ? (
+            <div className="code-gate">
+              <p>
+                High-value actions carry a <b>one-time code</b>. Write it by hand on paper and keep it in the photo: it proves the photo was taken just now,
+                for AIRQ.
+              </p>
+              <button className="primary-btn" onClick={fetchCode}>
+                Get my one-time code
+              </button>
+            </div>
+          ) : busy ? (
+            <ol className="checks" aria-live="polite">
+              {CHECKS.filter((_, k) => needsCode || k !== 3).map((c, k) => (
+                <li key={c} data-state={k < step ? 'done' : k === step ? 'run' : 'wait'}>
+                  {c}
+                </li>
+              ))}
+            </ol>
+          ) : photo ? (
+            <>
+              <img className="shot" src={photo.url} alt="Your proof photo" />
+              <div className="shot-actions">
+                <button className="linkish" onClick={() => setPhoto(null)}>
+                  Retake
+                </button>
+                <button className="primary-btn" onClick={send}>
+                  Send for verification
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {liveCode && (
+                <p className="code-big" aria-live="polite">
+                  Your code <b>{liveCode}</b> <small>valid 15 minutes, one photo</small>
+                </p>
+              )}
+              <Camera key={pick} code={liveCode} onShot={(b64, url) => setPhoto({ b64, url })} />
+            </>
+          )}
           <p className="fine">
-            Take a fresh photo: screenshots, stock images and re-used photos are rejected. Photos are checked by Amazon Nova AI, stored privately for 90 days for
-            audit, never shown publicly. Location data is removed before upload. Avoid faces and number plates.
+            Every photo goes through five checks on our server: re-encoding, fingerprint, screen and AI-image detection, the code, and the action itself (Amazon Nova AI). Photos are stored privately for 90 days for audit, never shown
+            publicly; location data is removed. Avoid faces and number plates.
           </p>
         </div>
       )}
       {err && <p className="fine warn">{err}</p>}
+
+      <FireWatch world={world} me={me} pick={fieldPick} onPick={onPickField} onShow={onShowField} />
+
+      <section className="block cert-cta" aria-labelledby="cert-h">
+        <h2 id="cert-h">Impact certificate</h2>
+        <p className="fine">A signed record of everything you've verified, with a QR code anyone, including a city office, can scan to check it's genuine.</p>
+        <button className="secondary-btn" onClick={onCert} disabled={me.n < 1 && !me.field?.clean}>
+          {me.n < 1 && !me.field?.clean ? 'Unlocks with your first verified action' : 'Issue my certificate'}
+        </button>
+      </section>
 
       {proofs.length > 0 && (
         <section className="block" aria-labelledby="proofs-h">

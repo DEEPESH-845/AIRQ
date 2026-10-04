@@ -9,7 +9,9 @@ const HowItWorks = lazy(() => import('./ui/HowItWorks'))
 const Guide = lazy(() => import('./ui/Guide'))
 import type { ShowTarget } from './ui/Guide'
 import { Impact, type ImpactTab } from './ui/Impact'
-import { sync } from './lib/account'
+import type { Pick } from './ui/FireWatch'
+import { issueCert, sync, useAccount, useFeed } from './lib/account'
+const Certificate = lazy(() => import('./ui/Certificate'))
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
@@ -77,6 +79,20 @@ export default function App() {
   const [side, setSide] = useState<'readout' | 'rankings' | 'general' | 'impact'>('readout')
   const [impactTab, setImpactTab] = useState<ImpactTab>('earn')
   const [guide, setGuide] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const [fieldPick, setFieldPick] = useState<Pick | null>(null)
+  const [cert, setCert] = useState<string | null>(() => new URLSearchParams(location.search).get('cert'))
+  const { me } = useAccount()
+  const feed = useFeed()
+  // districts with an action in the last 15 minutes send out a ripple
+  const fresh = useMemo(() => {
+    const cut = Date.now() - 15 * 60e3
+    return [...new Set((feed?.recent ?? []).filter((r) => new Date(r.at).getTime() > cut).map((r) => r.d))]
+  }, [feed])
+  const mapField = useMemo(() => {
+    const f = me?.field
+    return f ? { c: f.c, r: f.r, fire: !!f.burnt.length && f.burnt[f.burnt.length - 1] === f.last } : null
+  }, [me?.field])
   const [highlight, setHighlight] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('orders')
   const [focusKey, setFocusKey] = useState(0)
@@ -90,6 +106,8 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (how) setHow(false)
+      else if (cert) closeCert()
+      else if (picking) cancelPick()
       else if (guide) setGuide(false)
       else if (tracing) setTracing(false)
       else if (side !== 'readout') setSide('readout')
@@ -97,8 +115,8 @@ export default function App() {
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  }, [how, guide, tracing, side, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps -- closeDistrict only reads history
-  const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search))
+  }, [how, cert, picking, guide, tracing, side, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps -- closeDistrict only reads history
+  const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search) && !new URLSearchParams(location.search).get('cert'))
   const [focus, setFocus] = useState<Focus>(null)
   const [introTrace, setIntroTrace] = useState<District | null>(null)
   // stable, so Intro's scene effect runs only when its step changes
@@ -155,7 +173,41 @@ export default function App() {
       setSelectedId((cur) => cur ?? defaultDistrict(world).id)
       setTab(t)
     } else if (t === 'earn' || t === 'shop' || t === 'leaders') openImpact(t)
-    else goMission(t)
+    else if (t === 'field') {
+      if (me?.field) showField()
+      else if (me) startPick()
+      else openImpact('earn')
+    } else goMission(t)
+  }
+  // Fire Watch: hide the panel, let the player tap their field, then reopen with the pin
+  const startPick = () => {
+    closeDistrict()
+    setSide('readout')
+    setPicking(true)
+  }
+  const cancelPick = () => {
+    setPicking(false)
+    openImpact('earn')
+  }
+  const showField = () => {
+    if (!me?.field) return
+    if (innerWidth < 760) setSide('readout') // the panel covers the map on phones
+    setFocus({ to: me.field.c, zoom: 9 })
+  }
+  const openCert = async () => {
+    try {
+      setCert((await issueCert()).token)
+    } catch {
+      /* the button is disabled until a first verified action; a server error leaves it closed */
+    }
+  }
+  const closeCert = () => {
+    setCert(null)
+    const u = new URL(location.href)
+    if (u.searchParams.has('cert')) {
+      u.searchParams.delete('cert')
+      history.replaceState(history.state, '', u)
+    }
   }
   const startTrace = () => {
     setTracing(true)
@@ -172,7 +224,27 @@ export default function App() {
 
   return (
     <main className="app">
-      <AirqMap world={world} selected={selected} onSelect={select} panelOpen={!!selected} trace={tracing ? selected : introTrace} highlight={highlight} focus={focus} />
+      <AirqMap
+        world={world}
+        selected={selected}
+        onSelect={select}
+        panelOpen={!!selected}
+        trace={tracing ? selected : introTrace}
+        highlight={highlight}
+        focus={focus}
+        community={feed?.byDistrict}
+        fresh={fresh}
+        field={mapField}
+        onPick={
+          picking
+            ? (lon, lat) => {
+                setPicking(false)
+                setFieldPick({ lon, lat })
+                openImpact('earn')
+              }
+            : null
+        }
+      />
       <TopBar world={world} onSelect={select} onGeneral={openGeneral} onHelp={() => setGuide(true)}>
         <Hud onMission={goMission} onImpact={openImpact} />
         {!intro && <RaidBanner world={world} onSelect={select} />}
@@ -181,8 +253,20 @@ export default function App() {
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={select} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
-      {side === 'impact' && <Impact world={world} tab={impactTab} onTab={setImpactTab} home={selected ?? defaultDistrict(world)} onClose={() => setSide('readout')} />}
-      {side === 'readout' && !intro && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} />}
+      {side === 'impact' && (
+        <Impact
+          world={world}
+          tab={impactTab}
+          onTab={setImpactTab}
+          home={selected ?? defaultDistrict(world)}
+          onClose={() => setSide('readout')}
+          pick={fieldPick}
+          onPickField={startPick}
+          onShowField={showField}
+          onCert={openCert}
+        />
+      )}
+      {side === 'readout' && !intro && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} onImpact={() => openImpact('leaders')} />}
       </Boundary>
       {intro && (
         <Intro
@@ -232,6 +316,21 @@ export default function App() {
           />
         </Suspense>
       )}
+      {picking && (
+        <div className="trace-banner pick-banner" role="status">
+          <span>
+            Tap your <b>field</b> on the map. Zoom in to be precise.
+          </span>
+          <button onClick={cancelPick}>Cancel</button>
+        </div>
+      )}
+      {cert && (
+        <Boundary>
+          <Suspense fallback={null}>
+            <Certificate token={cert} onClose={closeCert} />
+          </Suspense>
+        </Boundary>
+      )}
       {tracing && selected && (
         <div className="trace-banner" role="status">
           <span>
@@ -252,7 +351,7 @@ export default function App() {
       )}
       {selected && (
         <Boundary key={selected.id}>
-        <DistrictPanel d={selected} world={world} tab={tab} onTab={setTab} focusKey={focusKey} spot={spot} onClose={closeDistrict} onTrace={startTrace} onHighlight={setHighlight} />
+        <DistrictPanel d={selected} world={world} tab={tab} onTab={setTab} focusKey={focusKey} spot={spot} onClose={closeDistrict} onTrace={startTrace} onHighlight={setHighlight} onEarn={() => openImpact('earn')} />
         </Boundary>
       )}
     </main>

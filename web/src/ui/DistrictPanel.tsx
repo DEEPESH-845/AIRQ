@@ -10,6 +10,7 @@ import { AlertToggle } from './AlertToggle'
 import { Briefing } from './Briefing'
 import { ReportSource } from './ReportSource'
 import { Replay } from './Replay'
+import { CitizensHere } from './Citizens'
 import { raidText } from '../lib/story'
 import { act, completeMission, type MissionId, type Tab } from '../lib/player'
 
@@ -66,7 +67,7 @@ function Tabs({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   )
 }
 
-export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onClose, onTrace, onHighlight }: { d: District; world: World; tab: Tab; onTab: (t: Tab) => void; focusKey: number; spot?: MissionId | null; onClose: () => void; onTrace: () => void; onHighlight: (ids: string[]) => void }) {
+export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onClose, onTrace, onHighlight, onEarn }: { d: District; world: World; tab: Tab; onTab: (t: Tab) => void; focusKey: number; spot?: MissionId | null; onClose: () => void; onTrace: () => void; onHighlight: (ids: string[]) => void; onEarn: () => void }) {
   const generatedAt = world.generatedAt
   const raid = world.raids.find((r) => r.id === d.id)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -186,6 +187,7 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
               <p className="raid-status">{raidText(raid)}.</p>
             )}
             <Attribution d={d} onTrace={onTrace} />
+            <CitizensHere district={d.id} name={d.n} onEarn={onEarn} />
             <ReportSource d={d} />
           </>
         )}
