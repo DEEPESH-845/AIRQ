@@ -17,6 +17,10 @@ cp infra/general/app.py web/src/lib/advice-matrix.json build/general/
 python3 -m pip install -q --target build/general --platform manylinux2014_aarch64 --implementation cp \
   --python-version 3.13 --only-binary=:all: --upgrade strands-agents >/dev/null
 
+echo "== staging player Lambda (no dependencies)"
+rm -rf build/player && mkdir -p build/player
+cp infra/player/app.py web/src/lib/economy.json build/player/
+
 echo "== staging push Lambda"
 (cd infra/push && npm i --omit=dev --silent)
 VAPID_PUBLIC=$(python3 -c "import json;print(json.load(open('.vapid.json'))['publicKey'])")

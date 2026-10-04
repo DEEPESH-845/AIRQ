@@ -32,7 +32,7 @@ function AwsDiagram() {
     return out
   }
   return (
-    <svg viewBox="0 0 760 316" role="img" aria-label="AWS architecture. World tick: EventBridge Scheduler every 4 hours starts a Step Functions workflow, which runs the tick Lambda; it writes world.json to S3, served by CloudFront. API: CloudFront routes /api to an HTTP API; the General Lambda runs a Strands agent on Amazon Bedrock Nova Micro. Raid alerts: Step Functions emits SmogRaid events; an EventBridge rule sends them to SNS, which triggers the push Lambda to send web push. DynamoDB holds push subscriptions and the General's daily quota. AWS Budgets caps spend at 15 dollars a month.">
+    <svg viewBox="0 0 760 416" role="img" aria-label="AWS architecture. World tick: EventBridge Scheduler every 4 hours starts a Step Functions workflow, which runs the tick Lambda; it writes world.json to S3, served by CloudFront. API: CloudFront routes /api to an HTTP API; the General Lambda runs a Strands agent on Amazon Bedrock Nova Micro. Raid alerts: Step Functions emits SmogRaid events; an EventBridge rule sends them to SNS, which triggers the push Lambda to send web push. Green actions: CloudFront routes /api/proof to the HTTP API; the player Lambda checks the photo with Amazon Bedrock Nova Lite, keeps it in a private S3 bucket and pays credits in DynamoDB, which also holds the leaderboard and shop. DynamoDB holds push subscriptions and the General's daily quota. AWS Budgets caps spend at 15 dollars a month.">
       <defs>
         <marker id="aw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" className="aw-head" />
@@ -41,8 +41,9 @@ function AwsDiagram() {
       {lane(26, 'World tick, every 4 h', [['EventBridge', 'Scheduler', 130], ['Step Functions', 'Standard', 130], ['Lambda', 'world tick', 120], ['S3', 'world.json', 120], ['CloudFront', 'app + data', 150]])}
       {lane(126, 'Ask the General', [['CloudFront', '/api/*', 130], ['HTTP API', '/api/general', 130], ['Lambda', 'Strands agent', 120], ['Bedrock', 'Nova Micro', 140]])}
       {lane(226, 'Raid alerts', [['EventBridge', 'SmogRaid rule', 130], ['SNS', 'raid topic', 130], ['Lambda', 'push', 120], ['Web Push', 'your browser', 140]])}
-      <text x="8" y="292" className="aw-s">Step Functions emits the SmogRaid events. DynamoDB holds push subscriptions (/api/subscribe) and the General's daily quota.</text>
-      <text x="8" y="308" className="aw-s">AWS Budgets caps spend at $15 a month.</text>
+      {lane(326, 'Green actions and credits', [['CloudFront', '/api/proof', 130], ['HTTP API', 'player routes', 130], ['Lambda', 'player', 120], ['Bedrock', 'Nova Lite vision', 140], ['DynamoDB', 'credits, board', 136]])}
+      <text x="8" y="392" className="aw-s">Step Functions emits the SmogRaid events. DynamoDB holds push subscriptions (/api/subscribe) and the General's daily quota.</text>
+      <text x="8" y="408" className="aw-s">Proof photos go to a private S3 bucket for 90 days. AWS Budgets caps spend at $15 a month.</text>
     </svg>
   )
 }

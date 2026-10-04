@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { World } from '../lib/world'
 import { istTime } from '../lib/world'
 import { catOf } from '../lib/naqi'
@@ -7,6 +7,15 @@ export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
+  const bar = useRef<HTMLElement>(null)
+  // left-hand panels start below the bar, whose height changes with the HUD, the raid banner and the screen width
+  useEffect(() => {
+    const el = bar.current
+    if (!el) return
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${el.offsetHeight - 28}px`))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const stale = world.sources.some((s) => s.stale)
 
   const matches = useMemo(() => {
@@ -25,7 +34,7 @@ export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world
   }
 
   return (
-    <header className="topbar">
+    <header className="topbar" ref={bar}>
       <div className="brand">
         <span className="wordmark">AIRQ</span>
         <span className="status" data-stale={stale}>
@@ -38,7 +47,7 @@ export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world
         </small>
       </div>
       <div className="top-actions">
-      <button className="help-btn" onClick={onHelp} aria-label="How AIRQ works">
+      <button className="help-btn" onClick={onHelp} aria-label="Field Manual: how to play" title="Field Manual">
         ?
       </button>
       <button className="general-btn" onClick={onGeneral}>

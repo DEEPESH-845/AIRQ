@@ -1,0 +1,204 @@
+{
+  "actions": [
+    {
+      "id": "stubble",
+      "label": "Manage crop residue without burning",
+      "credits": 120,
+      "xp": 60,
+      "perDay": 1,
+      "perWeek": 1,
+      "photo": "Happy Seeder, baler or decomposer at work, or residue mulched into an unburnt field",
+      "why": "Stubble smoke is the biggest single source in Punjab-Haryana-Delhi in Oct-Nov."
+    },
+    {
+      "id": "cleancook",
+      "label": "Switch a home to LPG or electric cooking",
+      "credits": 80,
+      "xp": 40,
+      "perDay": 1,
+      "perWeek": 1,
+      "photo": "The new LPG or induction stove in use in a home kitchen",
+      "why": "Wood and dung stoves fill homes and villages with PM2.5."
+    },
+    {
+      "id": "tree",
+      "label": "Plant a native tree or sapling",
+      "credits": 60,
+      "xp": 40,
+      "perDay": 2,
+      "perWeek": 14,
+      "photo": "The sapling freshly planted in the ground, with soil, hands or a tool in frame",
+      "why": "Trees catch dust and cool streets for decades, if they survive."
+    },
+    {
+      "id": "cleanup",
+      "label": "Join a clean-up drive",
+      "credits": 40,
+      "xp": 25,
+      "perDay": 1,
+      "perWeek": 7,
+      "photo": "People collecting litter, or filled garbage bags at the site",
+      "why": "Litter that is cleared is litter that never gets burned."
+    },
+    {
+      "id": "puc",
+      "label": "Get a vehicle emission (PUC) check",
+      "credits": 30,
+      "xp": 20,
+      "perDay": 1,
+      "perWeek": 1,
+      "photo": "The PUC certificate or the vehicle at the testing centre",
+      "why": "A tuned engine emits far less soot and NOx."
+    },
+    {
+      "id": "burning",
+      "label": "Report open waste burning",
+      "credits": 25,
+      "xp": 20,
+      "perDay": 2,
+      "perWeek": 14,
+      "photo": "The burning waste pile or its smoke, photographed at the site",
+      "why": "Open waste fires are a large, fixable winter source."
+    },
+    {
+      "id": "cycle",
+      "label": "Cycle or walk instead of driving",
+      "credits": 15,
+      "xp": 10,
+      "perDay": 2,
+      "perWeek": 14,
+      "photo": "Your bicycle on the road or path, or your walking route",
+      "why": "Every trip off the road is exhaust that never happens."
+    },
+    {
+      "id": "treecare",
+      "label": "Water or protect a tree you planted",
+      "credits": 15,
+      "xp": 10,
+      "perDay": 1,
+      "perWeek": 7,
+      "photo": "A young tree being watered, or with a tree guard",
+      "why": "Most planted saplings die in the first year without care."
+    },
+    {
+      "id": "transit",
+      "label": "Take the metro or bus instead of driving",
+      "credits": 12,
+      "xp": 8,
+      "perDay": 2,
+      "perWeek": 14,
+      "photo": "Inside the metro or bus, or the station platform",
+      "why": "One bus replaces dozens of cars on the road."
+    },
+    {
+      "id": "compost",
+      "label": "Segregate or compost household waste",
+      "credits": 12,
+      "xp": 8,
+      "perDay": 1,
+      "perWeek": 7,
+      "photo": "Separate wet and dry bins, or your compost pit or bin",
+      "why": "Segregated waste gets recycled instead of burned at the dump."
+    },
+    {
+      "id": "carpool",
+      "label": "Share a ride",
+      "credits": 10,
+      "xp": 8,
+      "perDay": 1,
+      "perWeek": 7,
+      "photo": "Several people sharing one car, cab or auto",
+      "why": "Fewer cars, less exhaust and less road dust."
+    }
+  ],
+  "dailyProofs": 6,
+  "firstBonus": 20,
+  "checkinCredits": 2,
+  "dailyGameXp": 150,
+  "frontline": [
+    1,
+    1,
+    1,
+    1.25,
+    1.5,
+    2,
+    2
+  ],
+  "streakStep": 0.1,
+  "streakMax": 1.5,
+  "goodiesUnlock": 3,
+  "shop": [
+    {
+      "id": "boost",
+      "kind": "boost",
+      "label": "Double Credits",
+      "cost": 40,
+      "desc": "Your next verified action pays double credits."
+    },
+    {
+      "id": "shield",
+      "kind": "boost",
+      "label": "Streak Shield",
+      "cost": 60,
+      "desc": "Keeps your eco-streak alive through one missed week."
+    },
+    {
+      "id": "t-sapling",
+      "kind": "title",
+      "label": "Sapling Scout",
+      "cost": 50,
+      "desc": "Title shown beside your callsign on the leaderboard."
+    },
+    {
+      "id": "t-slayer",
+      "kind": "title",
+      "label": "Smog Slayer",
+      "cost": 150,
+      "desc": "Title shown beside your callsign on the leaderboard."
+    },
+    {
+      "id": "t-monsoon",
+      "kind": "title",
+      "label": "Monsoon Maker",
+      "cost": 300,
+      "desc": "Title shown beside your callsign on the leaderboard."
+    },
+    {
+      "id": "t-people",
+      "kind": "title",
+      "label": "Air Marshal of the People",
+      "cost": 600,
+      "desc": "The rarest title in AIRQ."
+    },
+    {
+      "id": "g-tote",
+      "kind": "goodie",
+      "label": "Cloth tote bag",
+      "cost": 80,
+      "desc": "Say no to plastic that ends up burned."
+    },
+    {
+      "id": "g-seedball",
+      "kind": "goodie",
+      "label": "Seed-ball pack",
+      "cost": 120,
+      "desc": "Native seeds in clay, ready to throw on bare ground."
+    },
+    {
+      "id": "g-sapling",
+      "kind": "goodie",
+      "label": "Native sapling kit",
+      "cost": 200,
+      "desc": "Neem, peepal or jamun with a guide. Plant it and log it for 60 more credits."
+    },
+    {
+      "id": "g-n95",
+      "kind": "goodie",
+      "label": "N95 mask, 2-pack",
+      "cost": 250,
+      "desc": "BIS-certified masks for raid days."
+    }
+  ],
+  "multiplierCap": 3,
+  "homeLockDays": 30
+}

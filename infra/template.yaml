@@ -335,6 +335,80 @@ Resources:
           Type: HttpApi
           Properties: { ApiId: !Ref PushApi, Path: /api/general, Method: POST }
 
+  # ---------------------------------------------------------------- players: proofs, credits, shop, leaderboard
+  Players:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arq-players
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pid, AttributeType: S }]
+      KeySchema: [{ AttributeName: pid, KeyType: HASH }]
+
+  Proofs:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arq-proofs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+
+  ProofBucket: # private: proof photos are never served, only kept for audit
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub arq-proofs-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-proofs
+            Status: Enabled
+            ExpirationInDays: 90
+
+  PlayerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: arq-player
+      CodeUri: ../build/player
+      Handler: app.handler
+      MemorySize: 512
+      Timeout: 29
+      Environment:
+        Variables:
+          PLAYERS_TABLE: !Ref Players
+          PROOFS_TABLE: !Ref Proofs
+          PROOF_BUCKET: !Ref ProofBucket
+          SITE_BUCKET: !Ref SiteBucket
+          VISION_MODEL: us.amazon.nova-lite-v1:0 # multimodal, first-party: checks proof photos
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Players }
+        - DynamoDBCrudPolicy: { TableName: !Ref Proofs }
+        - S3CrudPolicy: { BucketName: !Ref ProofBucket }
+        - S3ReadPolicy: { BucketName: !Ref SiteBucket }
+        - Statement:
+            - Effect: Allow
+              Action: [bedrock:InvokeModel]
+              Resource:
+                - arn:aws:bedrock:*::foundation-model/amazon.nova-*
+                - !Sub arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*
+      Events:
+        Enlist: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/player, Method: POST } }
+        Sync: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/player/sync, Method: POST } }
+        Forget: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/player/delete, Method: POST } }
+        Proof: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/proof, Method: POST } }
+        Shop: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/shop, Method: POST } }
+        Board: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/leaderboard, Method: GET } }
+
   # ---------------------------------------------------------------- cost guardrail
   Budget:
     Type: AWS::Budgets::Budget

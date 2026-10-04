@@ -6,6 +6,10 @@ import { RaidBanner } from './ui/RaidBanner'
 import { MapKey } from './ui/MapKey'
 
 const HowItWorks = lazy(() => import('./ui/HowItWorks'))
+const Guide = lazy(() => import('./ui/Guide'))
+import type { ShowTarget } from './ui/Guide'
+import { Impact, type ImpactTab } from './ui/Impact'
+import { sync } from './lib/account'
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
 import { DistrictPanel } from './ui/DistrictPanel'
@@ -14,7 +18,7 @@ import { GeneralChat } from './ui/GeneralChat'
 import { Boundary } from './ui/Boundary'
 import { settle, bandName, type Result } from './lib/game'
 import { Hud } from './ui/Hud'
-import { MISSIONS, act, addPoints, checkIn, completeMission, getPlayer, markIntroSeen, shouldShowIntro, type MissionId, type Tab } from './lib/player'
+import { MISSIONS, act, addPoints, checkIn, completeMission, getPlayer, markIntroSeen, shouldShowIntro, usePlayer, type MissionId, type Tab } from './lib/player'
 import { defaultDistrict } from './lib/story'
 
 export default function App() {
@@ -37,6 +41,13 @@ export default function App() {
     if (!world) return
     act((p) => checkIn(p, Date.now())) // after Hud mounts, so its toast shows
   }, [world])
+  // the server's daily check-in (credits) and game XP for the leaderboard: on load, then settled XP changes
+  const xp = usePlayer().xp
+  useEffect(() => {
+    if (!world) return
+    const t = setTimeout(() => sync(getPlayer().xp), 1500)
+    return () => clearTimeout(t)
+  }, [world, xp])
 
   // deep link: ?d=<district id>. Opening a district pushes a history entry so Back closes it.
   useEffect(() => {
@@ -63,7 +74,9 @@ export default function App() {
 
   const selected = useMemo(() => world?.districts.find((d) => d.id === selectedId) ?? null, [world, selectedId])
   const [tracing, setTracing] = useState(false)
-  const [side, setSide] = useState<'readout' | 'rankings' | 'general'>('readout')
+  const [side, setSide] = useState<'readout' | 'rankings' | 'general' | 'impact'>('readout')
+  const [impactTab, setImpactTab] = useState<ImpactTab>('earn')
+  const [guide, setGuide] = useState(false)
   const [highlight, setHighlight] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('orders')
   const [focusKey, setFocusKey] = useState(0)
@@ -77,12 +90,14 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (how) setHow(false)
+      else if (guide) setGuide(false)
       else if (tracing) setTracing(false)
+      else if (side !== 'readout') setSide('readout')
       else if (selectedId) closeDistrict()
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  }, [how, tracing, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps -- closeDistrict only reads history
+  }, [how, guide, tracing, side, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps -- closeDistrict only reads history
   const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search))
   const [focus, setFocus] = useState<Focus>(null)
   const [introTrace, setIntroTrace] = useState<District | null>(null)
@@ -123,6 +138,25 @@ export default function App() {
     if (intro) endIntro()
     setSide('general')
   }
+  const openImpact = (t: ImpactTab) => {
+    if (intro) endIntro()
+    setImpactTab(t)
+    setSide('impact')
+  }
+  // the Field Manual's "Show me" buttons drive the real interface
+  const show = (t: ShowTarget) => {
+    if (!world) return
+    setGuide(false)
+    if (t === 'map') {
+      closeDistrict()
+      setSide('readout')
+      setKeyOpen(true)
+    } else if (t === 'orders' || t === 'battle') {
+      setSelectedId((cur) => cur ?? defaultDistrict(world).id)
+      setTab(t)
+    } else if (t === 'earn' || t === 'shop' || t === 'leaders') openImpact(t)
+    else goMission(t)
+  }
   const startTrace = () => {
     setTracing(true)
     act((p) => completeMission(p, 'trace'))
@@ -139,14 +173,15 @@ export default function App() {
   return (
     <main className="app">
       <AirqMap world={world} selected={selected} onSelect={select} panelOpen={!!selected} trace={tracing ? selected : introTrace} highlight={highlight} focus={focus} />
-      <TopBar world={world} onSelect={select} onGeneral={openGeneral} onHelp={() => setHow(true)}>
-        <Hud onMission={goMission} />
+      <TopBar world={world} onSelect={select} onGeneral={openGeneral} onHelp={() => setGuide(true)}>
+        <Hud onMission={goMission} onImpact={openImpact} />
         {!intro && <RaidBanner world={world} onSelect={select} />}
         {!selected && <MapKey open={keyOpen} onToggle={setKeyOpen} />}
       </TopBar>
       <Boundary key={side}>
       {side === 'rankings' && <Rankings world={world} onSelect={select} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
+      {side === 'impact' && <Impact world={world} tab={impactTab} onTab={setImpactTab} home={selected ?? defaultDistrict(world)} onClose={() => setSide('readout')} />}
       {side === 'readout' && !intro && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} />}
       </Boundary>
       {intro && (
@@ -163,6 +198,27 @@ export default function App() {
           }}
           onDone={() => endIntro()}
         />
+      )}
+      {guide && (
+        <Boundary>
+        <Suspense fallback={null}>
+          <Guide
+            world={world}
+            onClose={() => setGuide(false)}
+            onShow={show}
+            onHow={() => {
+              setGuide(false)
+              setHow(true)
+            }}
+            onReplayIntro={() => {
+              setGuide(false)
+              closeDistrict()
+              setSide('readout')
+              setIntro(true)
+            }}
+          />
+        </Suspense>
+        </Boundary>
       )}
       {how && (
         <Suspense fallback={null}>
