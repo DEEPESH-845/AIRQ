@@ -270,14 +270,16 @@ def normalise(raw):
     Image.MAX_IMAGE_PIXELS = 40_000_000  # decompression-bomb guard
     try:
         im = Image.open(io.BytesIO(raw))
+        if im.size[0] * im.size[1] > 40_000_000:  # Pillow only warns up to 2x MAX_IMAGE_PIXELS; refuse before decoding
+            raise ValueError('too many pixels')
         im.load()
+        im = ImageOps.exif_transpose(im).convert('RGB')
+        im.thumbnail((1280, 1280))
+        out = io.BytesIO()
+        im.save(out, 'JPEG', quality=82)
+        return out.getvalue(), dhash(im)
     except Exception as e:
-        raise ValueError('not an image') from e
-    im = ImageOps.exif_transpose(im).convert('RGB')
-    im.thumbnail((1280, 1280))
-    out = io.BytesIO()
-    im.save(out, 'JPEG', quality=82)
-    return out.getvalue(), dhash(im)
+        raise ValueError('not a usable image') from e
 
 
 # ---- Satellite Fire Watch: a registered field earns credits for every day NASA VIIRS sees no fire on it
@@ -296,17 +298,28 @@ def field_error(lon, lat, acres, near_district, fires):
         return 'Pick a field inside India.'
     if not (FW['acresMin'] <= acres <= FW['acresMax']):
         return f"Field size must be {FW['acresMin']} to {FW['acresMax']} acres."
-    belt = near_district and near_district['k'] in ('igp', 'ncr')
+    if not near_district or km(near_district['c'], (lon, lat)) > 100:
+        return 'Pick a field inside an Indian district.'
+    belt = near_district['k'] in ('igp', 'ncr')
     nearby = sum(1 for f in fires if km((lon, lat), f[:2]) <= FW['beltKm'])
     if not belt and nearby < 3:
         return 'Fire Watch covers farms in the crop-burning belt (Indo-Gangetic plain) or near recent farm fires.'
     return None
 
 
+def overlaps(lon, lat, r, others):
+    """others: 'lon,lat,r' strings of registered fields. Two players can't watch the same patch of land."""
+    for o in others:
+        olon, olat, orr = map(float, o.split(',')[:3])
+        if km((lon, lat), (olon, olat)) * 1000 < r + orr:
+            return True
+    return False
+
+
 def make_field(lon, lat, acres, d, now):
     r = math.sqrt(acres * 4046.86 / math.pi)  # a circle of the field's area, in metres
     return {'c': [round(lon, 5), round(lat, 5)], 'acres': acres, 'r': round(r), 'd': d['id'], 'dn': d['n'], 'at': int(now),
-            'last': '', 'clean': 0, 'burnt': []}
+            'last': '', 'last_ts': 0, 'clean': 0, 'burnt': []}
 
 
 def fires_on_field(field, fires, hours=24):
@@ -314,15 +327,23 @@ def fires_on_field(field, fires, hours=24):
     return [f for f in fires if f[3] <= hours and km(field['c'], f[:2]) <= reach]
 
 
+MAX_LOOKBACK_H = 60  # world.json keeps VIIRS fires up to ~60 h old
+
+
 def field_check(p, fires, now):
-    """Once per IST day. Returns (status, receipt): clean pays; a fire pays nothing for a cooldown."""
+    """Once per IST day. Looks back to the previous check (24-60 h) so no fire slips between checks.
+    Returns (status, receipt): clean pays; a fire pays nothing for a cooldown; a gap over 60 h re-baselines without pay."""
     f, day = p['field'], ist_day(now)
     if f['last'] == day:
         return 'done', None
-    on = fires_on_field(f, fires)
-    f['last'] = day
+    since_h = (now - f['last_ts']) / 3600 if f.get('last_ts') else 24
+    on = fires_on_field(f, fires, hours=min(MAX_LOOKBACK_H, max(24, since_h)))
+    f['last'], f['last_ts'] = day, int(now)
+    if since_h > MAX_LOOKBACK_H and not on:
+        return 'gap', {'hours': round(since_h)}
     if on:
-        f['burnt'].append(day)
+        if day not in f['burnt']:
+            f['burnt'].append(day)
         return 'fire', {'fires': len(on)}
     recent = [b for b in f['burnt'] if (datetime.strptime(day, '%Y-%m-%d') - datetime.strptime(b, '%Y-%m-%d')).days < FW['cooldownDays']]
     if recent:
@@ -614,13 +635,13 @@ def recent_hashes():
     return list(it.get('h', [])), int(it.get('v', 0))
 
 
-def remember_hash(h, pid):
+def remember_hash(h):
     """Append an approved photo's fingerprint to the rolling list (last 5,000), optimistic lock."""
     from botocore.exceptions import ClientError
     for _ in range(4):
         hs, v = recent_hashes()
         try:
-            aws('ddb').Table(PROOFS).put_item(Item={**PHASH_KEY, 'h': (hs + [f'{h}:{pid[:8]}'])[-5000:], 'v': v + 1},
+            aws('ddb').Table(PROOFS).put_item(Item={**PHASH_KEY, 'h': (hs + [f'{h}:-'])[-5000:], 'v': v + 1},
                                               ConditionExpression='attribute_not_exists(pk) OR v = :v', ExpressionAttributeValues={':v': v})
             return
         except ClientError as e:
@@ -662,6 +683,7 @@ def proof(body):
         return reply(400, {'error': 'Send one photo (JPEG, PNG or WebP) under 1.5 MB.'})
     proofs = aws('ddb').Table(PROOFS)
     sha = hashlib.sha256(image).hexdigest()
+    used_code = (p.get('ch') or {}).get('code')
     hashes, _ = recent_hashes()
     if low_information(h):
         ok, reason = False, 'This photo is too dark or blank to check. Try again in better light.'
@@ -674,8 +696,8 @@ def proof(body):
                 ok, reason = False, f"We couldn't read your code {p['ch']['code']} in the photo. Write it large on paper and keep it in frame."
     if ok:
         try:  # an approved photo is claimed for good, race-safe; a rejected one can be resent under the right action
-            proofs.put_item(Item={'pk': f'sha#{sha}', 'sk': '-', 'pid': p['pid']}, ConditionExpression='attribute_not_exists(pk)')
-            remember_hash(h, p['pid'])
+            proofs.put_item(Item={'pk': f'sha#{sha}', 'sk': '-'}, ConditionExpression='attribute_not_exists(pk)')
+            remember_hash(h)
         except ClientError as e:
             if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
                 raise
@@ -689,12 +711,16 @@ def proof(body):
     def pay(q):
         roll(q, now)
         blocked = can_submit(q, action, now)
-        q['pt'] += 1
         if ACTIONS[action].get('challenge'):
-            q['ch'] = None  # a code works for one photo, pass or fail
+            # a code works for one photo, pass or fail; a parallel proof that already spent it doesn't pay
+            blocked = blocked or (q.get('ch') or {}).get('code') != used_code
+            q['ch'] = None
+        q['pt'] += 1
         return (award(q, action, aqi_band) if ok and not blocked else None), True
 
     p, receipt = mutate(body, pay)
+    if not p:
+        return reply(401, {'error': 'Unknown player.'})
     if ok and not receipt:  # a parallel proof used up the cap between the check and the payment
         reason = 'Verified, but a daily or weekly limit was reached before it could pay.'
     audit = secrets.randbelow(100) < 5  # ponytail: 5% of approvals flagged for human spot-check; review UI when volume needs it
@@ -738,6 +764,10 @@ def field(body):
     if err:
         return reply(400, {'error': err})
     now = time.time()
+    r = make_field(lon, lat, acres, near, now)['r']
+    taken, _ = registered_fields()
+    if overlaps(lon, lat, r, taken):
+        return reply(400, {'error': 'Another player already watches this land. Each patch of land can be registered once.'})
 
     def register(p):
         if p.get('field'):
@@ -747,7 +777,34 @@ def field(body):
     p, e = mutate(body, register)
     if not p:
         return reply(401, {'error': 'Unknown player.'})
-    return reply(400, {'error': e}) if e else reply(200, {'me': public(p)})
+    if e:
+        return reply(400, {'error': e})
+    remember_field(p['field'], p['pid'])
+    return reply(200, {'me': public(p)})
+
+
+FIELDS_KEY = {'pk': 'fields', 'sk': 'all'}
+
+
+def registered_fields():
+    it = aws('ddb').Table(PROOFS).get_item(Key=FIELDS_KEY).get('Item') or {}
+    return list(it.get('f', [])), int(it.get('v', 0))
+
+
+def remember_field(f, pid, drop=False):
+    """Add (or, on account deletion, remove) a field in the registry used for the overlap check."""
+    from botocore.exceptions import ClientError
+    entry = f"{f['c'][0]},{f['c'][1]},{f['r']},{pid[:8]}"
+    for _ in range(4):
+        fs, v = registered_fields()
+        fs = [x for x in fs if not x.endswith(f',{pid[:8]}')] if drop else fs + [entry]
+        try:
+            aws('ddb').Table(PROOFS).put_item(Item={**FIELDS_KEY, 'f': fs, 'v': v + 1},
+                                              ConditionExpression='attribute_not_exists(pk) OR v = :v', ExpressionAttributeValues={':v': v})
+            return
+        except ClientError as e:
+            if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
+                raise
 
 
 def field_scan(body):
@@ -798,7 +855,8 @@ def shop(body):
 
 
 def forget(body):
-    """Delete-my-data: the player, their proof records and photos. Photo hashes stay so a photo can't be re-used."""
+    """Delete-my-data: the player, their proof records, photos, feed entries and field. Anonymous photo fingerprints
+    (no player id) stay so a photo can't be re-used."""
     from boto3.dynamodb.conditions import Key
     p = authed(body)
     if not p:
@@ -815,6 +873,8 @@ def forget(body):
         for it in feed_items:
             if it.get('pid') == p['pid']:
                 b.delete_item(Key={'pk': 'feed', 'sk': it['sk']})
+    if p.get('field'):
+        remember_field(p['field'], p['pid'], drop=True)
     players_table().delete_item(Key={'pid': p['pid']})
     return reply(200, {'ok': True})
 

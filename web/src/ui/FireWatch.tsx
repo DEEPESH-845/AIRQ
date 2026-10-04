@@ -84,6 +84,7 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
               {res.status === 'fire' && `VIIRS detected ${res.receipt?.fires} fire${res.receipt?.fires === 1 ? '' : 's'} on your field. Rewards pause for ${FW.cooldownDays} days.`}
               {res.status === 'cooldown' && `Paused after a fire on your field, until ${res.receipt?.until}.`}
               {res.status === 'done' && "Today's check is done. The satellites pass again tonight; check tomorrow."}
+              {res.status === 'gap' && `No check for ${res.receipt?.hours} h, longer than the 60 h satellite record. Watch restarted today; check daily to keep earning.`}
             </p>
           )}
           <div className="shot-actions">

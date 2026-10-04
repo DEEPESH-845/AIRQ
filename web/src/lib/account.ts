@@ -19,7 +19,7 @@ export type Me = {
   life?: Record<string, number>; earned?: number; field?: Field | null
 }
 export type Field = { c: [number, number]; acres: number; r: number; d: string; dn: string; at: number; last: string; clean: number; burnt: string[] }
-export type FieldResult = { status: 'clean' | 'fire' | 'cooldown' | 'done'; receipt: { credits?: number; xp?: number; days?: number; fires?: number; until?: string } | null }
+export type FieldResult = { status: 'clean' | 'fire' | 'cooldown' | 'done' | 'gap'; receipt: { credits?: number; xp?: number; days?: number; fires?: number; until?: string; hours?: number } | null }
 export type FeedItem = { name: string; title: string; action: string; d: string; dn: string; s: string; at: string }
 export type Feed = { recent: FeedItem[]; byDistrict: Record<string, number>; byAction: Record<string, number>; total: number }
 export type Cert = { id: string; name: string; title: string; where: string; actions: number; life: Record<string, number>; earned: number; xp: number; streak: number; fieldDays: number; since: number; iat: number }

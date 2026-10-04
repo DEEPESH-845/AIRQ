@@ -7,6 +7,7 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
   const video = useRef<HTMLVideoElement>(null)
   const [state, setState] = useState<'starting' | 'live' | 'none'>('starting')
   const [flash, setFlash] = useState(false)
+  const [err, setErr] = useState('')
 
   useEffect(() => {
     let stream: MediaStream | null = null
@@ -72,10 +73,15 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
             capture="environment"
             onChange={async (e) => {
               const f = e.target.files?.[0]
-              if (f) onShot(await shrink(f), URL.createObjectURL(f))
+              if (!f) return
+              try {
+                onShot(await shrink(f), URL.createObjectURL(f))
+              } catch {
+                setErr("This browser can't read that photo format (e.g. HEIC). Try a JPEG or PNG.")
+              }
             }}
           />
-          <span>No camera access. Take or choose a photo{code ? ` showing the code ${code}` : ''}.</span>
+          <span>{err || `No camera access. Take or choose a photo${code ? ` showing the code ${code}` : ''}.`}</span>
         </label>
       )}
     </div>

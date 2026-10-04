@@ -1,7 +1,7 @@
 """Self-check for the player economy. Run: python3 infra/player/check.py"""
 from datetime import datetime, timezone
 from app import (ECO, award, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
-                 hamming, field_error, make_field, fires_on_field, field_check, sign_cert, read_cert, cert_payload, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id)
+                 hamming, field_error, make_field, overlaps, fires_on_field, field_check, sign_cert, read_cert, cert_payload, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id)
 
 at = lambda iso: datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp()
 D = {'id': 'd001', 'n': 'New Delhi', 's': 'Delhi', 'aqi': 320}
@@ -147,6 +147,8 @@ south = {'id': 'd901', 'n': 'Ernakulam', 's': 'Kerala', 'k': 'rest', 'c': [76.3,
 assert field_error(76.98, 29.69, 5, igp, []) is None
 assert field_error(76.3, 10.0, 5, south, []) and field_error(76.3, 10.0, 5, south, [[76.31, 10.01, 2, 3]] * 3) is None
 assert field_error(76.98, 29.69, 500, igp, []) and field_error(10, 10, 5, igp, [])
+assert field_error(72.0, 30.0, 5, igp, []), 'nearest district 480 km away (e.g. across the border) is refused'
+assert overlaps(76.98, 29.69, 80, ['76.9805,29.6902,80,abcd1234']) and not overlaps(76.98, 29.69, 80, ['77.1,29.69,80,abcd1234'])
 fp = new_player('f1', 'h', 'Farmer One', D, t0)
 fp['field'] = make_field(76.98, 29.69, 5, igp, t0)
 assert 75 < fp['field']['r'] < 85  # 5 acres (20,234 m²) is a circle of ~80 m
@@ -157,9 +159,15 @@ assert len(fires_on_field(fp['field'], [on, off, old])) == 1
 st, r = field_check(fp, [off, old], t0)
 assert st == 'clean' and r['credits'] == ECO['fieldWatch']['credits'] and fp['cr'] == ECO['fieldWatch']['credits'] and fp['life']['fieldwatch'] == 1
 assert field_check(fp, [], t0)[0] == 'done', 'once a day'
-assert field_check(fp, [on], t0 + 86400)[0] == 'fire'
-assert field_check(fp, [], t0 + 3 * 86400)[0] == 'cooldown'
-assert field_check(fp, [], t0 + 8 * 86400)[0] == 'clean'
+# the look-back reaches the previous check: a fire 40 h ago is seen when the last check was 46 h ago
+assert field_check(fp, [[76.98, 29.69, 5, 40]], t0 + 46 * 3600)[0] == 'fire'
+# fire seen on IST day t0+2 (07:30 IST): checked daily, rewards pause 7 days, then resume
+assert [field_check(fp, [], t0 + k * 86400)[0] for k in range(3, 9)] == ['cooldown'] * 6
+assert field_check(fp, [], t0 + 9 * 86400)[0] == 'clean'
+# skipping more than 60 h re-baselines without pay (fires older than the satellite record can't be seen)
+cr = fp['cr']
+assert field_check(fp, [], t0 + 12 * 86400)[0] == 'gap' and fp['cr'] == cr
+assert field_check(fp, [], t0 + 13 * 86400)[0] == 'clean'
 
 # certificates: verifiable, tamper-evident, wrong secret fails
 tok = sign_cert(cert_payload(fp, t0), 's3cret')
