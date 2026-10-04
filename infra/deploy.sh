@@ -38,7 +38,7 @@ echo "== building web app"
 (cd web && VITE_VAPID_PUBLIC_KEY="$VAPID_PUBLIC" npx vite build >/dev/null)
 
 echo "== uploading to s3://$BUCKET"
-aws s3 sync web/dist "s3://$BUCKET" --delete --exclude "data/*" --exclude "archive/*" --exclude "cache/*" \
+aws s3 sync web/dist "s3://$BUCKET" --delete --exclude "data/*" --exclude "archive/*" --exclude "cache/*" --exclude "briefings/*" \
   --exclude "index.html" --exclude "sw.js" --cache-control "public, max-age=31536000, immutable" >/dev/null
 for f in index.html sw.js; do aws s3 cp "web/dist/$f" "s3://$BUCKET/$f" --cache-control "no-cache" >/dev/null; done
 aws s3 sync web/dist/geo "s3://$BUCKET/geo" --cache-control "public, max-age=86400" >/dev/null
