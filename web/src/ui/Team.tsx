@@ -1,5 +1,45 @@
 import { useEffect, useState } from 'react'
-import { TEAM_KINDS, createTeam, fetchTeam, joinTeam, leaveTeam, type Me, type TeamView } from '../lib/account'
+import { TEAM_KINDS, createTeam, fetchTeam, joinTeam, leaveTeam, type Me, type Pact, type TeamView } from '../lib/account'
+
+const RESULT: Record<string, string> = { clean: 'Fire-free week', forgiven: 'Fire forgiven (season strike)', fire: 'A fire: streak reset', small: 'Too few fields to count' }
+
+/** Village Fire Pact: the members' fields settle together each week, from NASA VIIRS. Aggregates only, never who burned. */
+function PactPanel({ pact, hasField }: { pact: Pact; hasField: boolean }) {
+  const ready = pact.fields >= pact.minFields
+  return (
+    <section className="block pact" aria-labelledby="pact-h">
+      <h2 id="pact-h">Village Fire Pact</h2>
+      <div className="pact-streak">
+        <b>{pact.streak}</b>
+        <span>fire-free week{pact.streak === 1 ? '' : 's'} in a row</span>
+      </div>
+      <p className="lede">
+        {!ready
+          ? `A pact needs at least ${pact.minFields} farmers with pinned fields (now ${pact.fields}).`
+          : pact.firedThisWeek
+            ? 'A fire was seen on a pact field this week. The verdict comes on Monday.'
+            : `No fire on any of the ${pact.fields} pact fields so far this week.`}
+      </p>
+      <p className="fine">
+        Every fire-free week pays <b>+{pact.bonus} credits</b> to each farmer in the pact. One fire on any member's field costs the whole village that week's bonus.
+        {pact.strikeLeft ? ' The first fire this season is forgiven.' : " This season's forgiven fire has been used."} Only a fire on the field itself counts, so a neighbour's fire can't
+        fail the pact.
+      </p>
+      {!hasField && <p className="fine warn">Pin your field in Earn → Satellite Fire Watch so it counts for the pact.</p>}
+      {pact.weeks.length > 0 && (
+        <ol className="pact-weeks" aria-label="Past weeks">
+          {pact.weeks.map((w) => (
+            <li key={w.wk} data-r={w.result} title={`${w.wk}: ${RESULT[w.result]}, ${w.fields} fields`}>
+              <span className="sr-only">
+                {w.wk}: {RESULT[w.result]}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
 
 /** Teams: schools, colleges, residents' associations, offices, village pacts. One team per player; join by invite code. */
 export function Team({ me, invite }: { me: Me; invite: string | null }) {
@@ -65,6 +105,7 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
             </i>
           </div>
         </div>
+        {view.pact && <PactPanel pact={view.pact} hasField={!!me.field} />}
         <section className="block" aria-labelledby="inv-h">
           <h2 id="inv-h">Invite your people</h2>
           <p className="fine">Anyone who opens the link or enters the code joins {view.name}.</p>

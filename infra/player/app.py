@@ -49,6 +49,16 @@ def band(aqi):
     return next((i for i, top in enumerate(BAND_TOPS) if aqi <= top), 6)
 
 
+def active_events(now):
+    """Time-boxed events from the catalog, by IST date (inclusive)."""
+    day = ist_day(now)
+    return [e for e in ECO.get('events', []) if e['from'] <= day <= e['to']]
+
+
+def event_mult(kind, now):
+    return max([e['mult'].get(kind, 1) for e in active_events(now)] or [1])
+
+
 def new_player(pid, th, name, d, now):
     return {'pid': pid, 'th': th, 'name': name, 'd': d['id'], 'dn': d['n'], 's': d['s'], 'title': '', 'titles': [],
             'xp': 0, 'seen': 0, 'eco': 0, 'cr': 0, 'wk': week_id(now), 'wxp': 0, 'day': ist_day(now), 'dxp': 0, 'checkin': '',
@@ -108,7 +118,7 @@ def pay_out(p, kind, credits, xp):
     life[kind] = life.get(kind, 0) + 1
 
 
-def award(p, action, aqi_band):
+def award(p, action, aqi_band, now=None):
     """Pay one approved proof. Call after roll(). Returns the receipt shown to the player."""
     a, wk, inv = ACTIONS[action], p['wk'], p['inv']
     shield = False
@@ -128,7 +138,8 @@ def award(p, action, aqi_band):
     if boost == 2:
         inv['boost'] -= 1
     first = 0 if action in p['firsts'] else ECO['firstBonus']
-    mult = min(ECO['multiplierCap'], front * streak * boost)
+    event = event_mult(action, now if now is not None else time.time())
+    mult = min(ECO['multiplierCap'], front * streak * boost * event)
     credits = int(a['credits'] * mult + 0.5) + first
     pay_out(p, action, credits, a['xp'])
     p['n'] += 1
@@ -137,7 +148,7 @@ def award(p, action, aqi_band):
     if first:
         p['firsts'].append(action)
     return {'base': a['credits'], 'frontline': front, 'streak': streak, 'weeks': p['streak'], 'boost': boost,
-            'mult': round(mult, 2), 'first': first, 'credits': credits, 'xp': a['xp'], 'shield': shield}
+            'event': event, 'mult': round(mult, 2), 'first': first, 'credits': credits, 'xp': a['xp'], 'shield': shield}
 
 
 CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'  # no 0/O, 1/I
@@ -323,8 +334,10 @@ def make_field(lon, lat, acres, d, now):
             'last': '', 'last_ts': 0, 'clean': 0, 'burnt': []}
 
 
-def fires_on_field(field, fires, hours=24):
-    reach = (field['r'] + FW['bufferM']) / 1000  # VIIRS pixels are ~375 m across
+def fires_on_field(field, fires, hours=24, buffer=True):
+    """buffer: add one VIIRS pixel (~375 m) of margin. The pact's strict check uses the field alone, so a neighbour's
+    fire can't fail a whole village."""
+    reach = (field['r'] + (FW['bufferM'] if buffer else 0)) / 1000
     return [f for f in fires if f[3] <= hours and km(field['c'], f[:2]) <= reach]
 
 
@@ -338,7 +351,15 @@ def field_check(p, fires, now):
     if f['last'] == day:
         return 'done', None
     since_h = (now - f['last_ts']) / 3600 if f.get('last_ts') else 24
-    on = fires_on_field(f, fires, hours=min(MAX_LOOKBACK_H, max(24, since_h)))
+    lookback = min(MAX_LOOKBACK_H, max(24, since_h))
+    on = fires_on_field(f, fires, hours=lookback)
+    # strict fire days for the village pact, dated by when each fire burned (its age), not when we looked
+    pb = f.setdefault('pburnt', [])
+    for fr in fires_on_field(f, fires, hours=lookback, buffer=False):
+        d = ist_day(now - fr[3] * 3600)
+        if d not in pb:
+            pb.append(d)
+    f['pburnt'] = pb[-60:]
     f['last'], f['last_ts'] = day, int(now)
     if since_h > MAX_LOOKBACK_H and not on:
         return 'gap', {'hours': round(since_h)}
@@ -350,8 +371,9 @@ def field_check(p, fires, now):
     if recent:
         return 'cooldown', {'until': (datetime.strptime(recent[-1], '%Y-%m-%d') + timedelta(days=FW['cooldownDays'])).strftime('%Y-%m-%d')}
     f['clean'] += 1
-    pay_out(p, 'fieldwatch', FW['credits'], FW['xp'])
-    return 'clean', {'credits': FW['credits'], 'xp': FW['xp'], 'days': f['clean']}
+    credits = int(FW['credits'] * event_mult('fieldwatch', now) + 0.5)
+    pay_out(p, 'fieldwatch', credits, FW['xp'])
+    return 'clean', {'credits': credits, 'xp': FW['xp'], 'days': f['clean']}
 
 
 # ---- Impact certificates: a signed snapshot anyone (a city office) can verify at /?cert=
@@ -441,10 +463,63 @@ def team_view(code, team, players, now):
     weekly = lambda p: p.get('wxp', 0) if p.get('wk') == wk else 0
     verified = lambda p: sum((p.get('aw') or {}).values()) if p.get('wk') == wk else 0
     rows = sorted(members, key=lambda p: (-weekly(p), p.get('created', 0)))
-    return {'code': code, 'name': team['name'], 'kind': team['kind'], 'kindLabel': TEAM_KINDS.get(team['kind'], ''),
+    pact = None
+    if team['kind'] == 'village':
+        now_wk = pact_week(members, wk)
+        pact = {'streak': team.get('streak', 0), 'weeks': team.get('weeks', []), 'strikeLeft': team.get('strikeSeason') != wk[:4],
+                'fields': now_wk['fields'], 'firedThisWeek': now_wk['fired'] > 0, 'minFields': PACT['minFields'], 'bonus': PACT['bonus']}
+    return {'pact': pact, 'code': code, 'name': team['name'], 'kind': team['kind'], 'kindLabel': TEAM_KINDS.get(team['kind'], ''),
             'members': len(members), 'wxp': sum(map(weekly, members)), 'verified': sum(map(verified, members)),
             'goal': max(10, 3 * len(members)),
             'rows': [{'rank': i + 1, 'name': p['name'], 'title': p.get('title', ''), 'where': f"{p['dn']}, {p['s']}", 'score': weekly(p)} for i, p in enumerate(rows[:50])]}
+
+
+# ---- Village Fire Pact: a village team's fields settle together, weekly
+PACT = ECO['pact']
+
+
+def week_days(wk):
+    monday = datetime.strptime(wk + '-1', '%G-W%V-%u')
+    return {(monday + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)}
+
+
+def pact_week(members, wk):
+    """Fields watched and how many saw a strict fire (on the field itself) during IST week wk. Aggregate only."""
+    days = week_days(wk)
+    fields = [m['field'] for m in members if m.get('field')]
+    return {'fields': len(fields), 'fired': sum(1 for f in fields if days & set(f.get('pburnt', [])))}
+
+
+def settle_pact(team, members, wk):
+    """Settle week wk once. Returns (result, pids to pay) or None if already settled / before the pact existed.
+    clean: no fire on any member field. forgiven: a fire, but the season's one strike was unused. fire: streak resets.
+    small: fewer than minFields fields, nothing changes."""
+    if team.get('settled', '') >= wk:
+        return None
+    team['settled'] = wk
+    if week_id(team['created']) > wk:
+        return None
+    s = pact_week(members, wk)
+    if s['fields'] < PACT['minFields']:
+        result = 'small'
+    elif s['fired'] == 0:
+        result = 'clean'
+    elif team.get('strikeSeason') != wk[:4]:
+        team['strikeSeason'] = wk[:4]
+        result = 'forgiven'
+    else:
+        result = 'fire'
+    if result in ('clean', 'forgiven'):
+        team['streak'] = team.get('streak', 0) + 1
+    elif result == 'fire':
+        team['streak'] = 0
+    team['weeks'] = (team.get('weeks', []) + [{'wk': wk, 'result': result, 'fields': s['fields']}])[-12:]
+    return result, ([m['pid'] for m in members if m.get('field')] if result in ('clean', 'forgiven') else [])
+
+
+def burnt_this_week(p, now):
+    f = p.get('field') or {}
+    return bool(week_days(week_id(now)) & set(f.get('pburnt', [])))
 
 
 def home_movable(p, now):
@@ -761,7 +836,7 @@ def proof(body):
             blocked = blocked or (q.get('ch') or {}).get('code') != used_code
             q['ch'] = None
         q['pt'] += 1
-        return (award(q, action, aqi_band) if ok and not blocked else None), True
+        return (award(q, action, aqi_band, now) if ok and not blocked else None), True
 
     p, receipt = mutate(body, pay)
     if not p:
@@ -792,8 +867,22 @@ def feed():
             by[i['d']] = by.get(i['d'], 0) + 1
             kinds[i['action']] = kinds.get(i['action'], 0) + 1
         recent = [{'name': i['name'], 'title': i.get('title', ''), 'action': i['action'], 'd': i['d'], 'dn': i['dn'], 's': i['s'], 'at': i['sk']} for i in items[:25]]
-        _feed.update(at=time.time(), data={'recent': recent, 'byDistrict': by, 'byAction': kinds, 'total': len(items)})
+        _feed.update(at=time.time(), data={'recent': recent, 'byDistrict': by, 'byAction': kinds, 'total': len(items), 'pacts': pact_layer(time.time())})
     return reply(200, _feed['data'])
+
+
+def pact_layer(now):
+    """Village pacts for the map: centre of members' fields and whether any saw a fire this week. Never per field or member."""
+    groups = {}
+    for p in all_players():
+        if p.get('tk') == 'village' and p.get('field'):
+            groups.setdefault(p['team'], {'name': p.get('tn', ''), 'fields': []})['fields'].append(p)
+    out = []
+    for code, g in groups.items():
+        cs = [m['field']['c'] for m in g['fields']]
+        out.append({'name': g['name'], 'c': [round(sum(c[0] for c in cs) / len(cs), 3), round(sum(c[1] for c in cs) / len(cs), 3)],
+                    'fields': len(cs), 'fire': any(burnt_this_week(m, now) for m in g['fields'])})
+    return out
 
 
 def field(body):
@@ -881,6 +970,58 @@ def post_feed(p, action, now):
                                             'd': where['d'], 'dn': where['dn'], 's': district.get('s', p['s']), 'ttl': int(now) + 8 * 86400})
 
 
+def pact_job(now=None):
+    """Settle last week for every village pact (runs after each tick; each week settles once, conditionally)."""
+    from boto3.dynamodb.conditions import Attr
+    from botocore.exceptions import ClientError
+    now = now or time.time()
+    wk = prev_week(week_id(now))
+    table, kw, out = aws('ddb').Table(PROOFS), {'FilterExpression': Attr('pk').begins_with('team#') & Attr('kind').eq('village')}, {}
+    _board['at'] = 0  # fresh fields for the verdict
+    players = all_players()
+    while True:
+        r = table.scan(**kw)
+        for item in r['Items']:
+            t = plain(item)
+            code = t['pk'][5:]
+            before = t.get('settled', '')
+            members = [p for p in players if p.get('team') == code]
+            settled = settle_pact(t, members, wk)
+            if t.get('settled') == before:
+                continue
+            # only one run settles a week, however many ticks race
+            cond = ({'ConditionExpression': 'settled = :b', 'ExpressionAttributeValues': {':b': before}} if before
+                    else {'ConditionExpression': 'attribute_not_exists(settled)'})
+            try:
+                table.put_item(Item=ddb(t), **cond)
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                    continue
+                raise
+            if not settled:
+                continue
+            result, pay = settled
+            out[code] = result
+            for pid in pay:
+                for _ in range(3):
+                    p = get_player(pid)
+                    if not p:
+                        break
+                    v = p['v']
+                    pay_out(p, 'pact', PACT['bonus'], PACT['xp'])
+                    if save(p, v):
+                        break
+            if result in ('clean', 'forgiven') and members:
+                f = next(m['field'] for m in members if m.get('field'))
+                district = districts().get(f['d'], {})
+                ts = datetime.fromtimestamp(now, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                table.put_item(Item={'pk': 'feed', 'sk': ts, 'pid': f'team#{code}', 'name': t['name'], 'title': '', 'action': 'pactweek',
+                                     'd': f['d'], 'dn': f['dn'], 's': district.get('s', ''), 'ttl': int(now) + 8 * 86400})
+        if 'LastEvaluatedKey' not in r:
+            return out
+        kw['ExclusiveStartKey'] = r['LastEvaluatedKey']
+
+
 def fieldwatch_job():
     """Run after every world tick (Step Functions): check every registered field against the fresh VIIRS fires, so farmers
     don't have to tap. field_check settles at most once per IST day, so the 4-hourly runs pay once a day."""
@@ -954,6 +1095,8 @@ def team(event, body):
     if not p:
         return reply(401, {'error': 'Unknown player.'})
     if body.get('leave'):
+        if p.get('tk') == 'village' and burnt_this_week(p, now):
+            return reply(400, {'error': "A fire was seen on your field this week. You can leave after Monday's pact verdict."})
         p, _ = mutate(body, lambda q: (leave_team(q), True))
         _board['at'] = 0  # boards show the change at once
         return reply(200, {'me': public(p)})
@@ -1015,7 +1158,7 @@ def forget(body):
 
 
 _board = {'at': 0.0, 'players': []}
-FIELDS = ['pid', 'name', 'title', 'd', 'dn', 's', 'xp', 'eco', 'wk', 'wxp', 'created', 'team', 'tn', 'tk', 'aw']
+FIELDS = ['pid', 'name', 'title', 'd', 'dn', 's', 'xp', 'eco', 'wk', 'wxp', 'created', 'team', 'tn', 'tk', 'aw', 'field']
 
 
 def all_players():
@@ -1058,7 +1201,9 @@ def review_cli(pid, code, status):
 
 def handler(event, context=None):
     if event.get('job') == 'fieldwatch':  # scheduled, from the world tick; not an HTTP request
-        return fieldwatch_job()
+        done = fieldwatch_job()
+        done['pacts'] = pact_job()
+        return done
     try:
         method = event['requestContext']['http']['method']
         path = event.get('rawPath', '')

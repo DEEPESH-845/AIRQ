@@ -8,7 +8,7 @@ import { getPlayer } from './player'
 export const ECO = economy
 export type Action = (typeof economy.actions)[number]
 export type Item = (typeof economy.shop)[number]
-export type Receipt = { base: number; frontline: number; streak: number; weeks: number; boost: number; mult: number; first: number; credits: number; xp: number; shield: boolean }
+export type Receipt = { base: number; frontline: number; streak: number; weeks: number; boost: number; event?: number; mult: number; first: number; credits: number; xp: number; shield: boolean }
 export type Proof = { sk: string; action: string; ok: boolean; reason: string; credits: number }
 export type Claim = { item: string; label: string; code: string; at: number; status: 'review' | 'ready' | 'done' | 'refunded' }
 export type Me = {
@@ -19,21 +19,27 @@ export type Me = {
   life?: Record<string, number>; earned?: number; field?: Field | null
   team?: string; tn?: string; tk?: string
 }
-export type TeamView = { code: string; name: string; kind: string; kindLabel: string; members: number; wxp: number; verified: number; goal: number; rows: Row[] }
+export type Pact = { streak: number; weeks: { wk: string; result: 'clean' | 'forgiven' | 'fire' | 'small'; fields: number }[]; strikeLeft: boolean; fields: number; firedThisWeek: boolean; minFields: number; bonus: number }
+export type TeamView = { code: string; name: string; kind: string; kindLabel: string; members: number; wxp: number; verified: number; goal: number; rows: Row[]; pact: Pact | null }
 export const TEAM_KINDS: [string, string][] = [['school', 'School'], ['college', 'College'], ['rwa', "Residents' association"], ['office', 'Office'], ['village', 'Village pact']]
 export type Field = { c: [number, number]; acres: number; r: number; d: string; dn: string; at: number; last: string; last_ts?: number; clean: number; burnt: string[] }
 export type FieldResult = { status: 'clean' | 'fire' | 'cooldown' | 'done' | 'gap'; receipt: { credits?: number; xp?: number; days?: number; fires?: number; until?: string; hours?: number } | null }
 export type FeedItem = { name: string; title: string; action: string; d: string; dn: string; s: string; at: string }
-export type Feed = { recent: FeedItem[]; byDistrict: Record<string, number>; byAction: Record<string, number>; total: number }
+export type PactPin = { name: string; c: [number, number]; fields: number; fire: boolean }
+export type Feed = { recent: FeedItem[]; byDistrict: Record<string, number>; byAction: Record<string, number>; total: number; pacts?: PactPin[] }
 export type Cert = { id: string; name: string; title: string; team?: string; where: string; actions: number; life: Record<string, number>; earned: number; xp: number; streak: number; fieldDays: number; since: number; iat: number }
 export type Row = { rank: number; name: string; title?: string; where?: string; players?: number; kind?: string; score: number; me?: boolean }
 export type Board = { scope: string; week: string; rows: Row[]; me: Row | null }
 
 // ---------- pure helpers (mirror infra/player/app.py, for previews only: the server decides)
 export const frontline = (aqi: number) => ECO.frontline[catIndex(aqi)]
+const istDate = (t: number) => new Date(t + 5.5 * 3600e3).toISOString().slice(0, 10)
+/** Time-boxed events (Smoke Season, Green Diwali) active on today's IST date. Mirrors the Lambda. */
+export const activeEvents = (t = Date.now()) => ECO.events.filter((e) => e.from <= istDate(t) && istDate(t) <= e.to)
+export const eventMult = (kind: string, t = Date.now()) => Math.max(1, ...activeEvents(t).map((e) => (e.mult as Partial<Record<string, number>>)[kind] ?? 1))
 export const streakMult = (weeks: number) => Math.min(ECO.streakMax, 1 + ECO.streakStep * Math.max(0, weeks - 1))
-export function estimate(a: Pick<Action, 'credits'>, aqi: number, weeks: number, first: boolean, boost = false) {
-  const mult = Math.min(ECO.multiplierCap, frontline(aqi) * streakMult(weeks) * (boost ? 2 : 1))
+export function estimate(a: Pick<Action, 'credits'> & { id?: string }, aqi: number, weeks: number, first: boolean, boost = false, t = Date.now()) {
+  const mult = Math.min(ECO.multiplierCap, frontline(aqi) * streakMult(weeks) * (boost ? 2 : 1) * (a.id ? eventMult(a.id, t) : 1))
   return Math.round(a.credits * mult) + (first ? ECO.firstBonus : 0)
 }
 /** The eco-streak (in weeks) a proof sent now would count. */
@@ -197,4 +203,5 @@ const subscribeFeed = (f: () => void) => {
 }
 const feedSnapshot = () => feed
 export const useFeed = () => useSyncExternalStore(subscribeFeed, feedSnapshot)
-export const actionLabel = (id: string) => (id === 'fieldwatch' ? 'Kept a field fire-free (satellite)' : (ECO.actions.find((a) => a.id === id)?.label ?? id))
+const SPECIAL: Record<string, string> = { fieldwatch: 'Kept a field fire-free (satellite)', pact: 'Village pact: a fire-free week', pactweek: 'Village pact kept a fire-free week (satellite)' }
+export const actionLabel = (id: string) => SPECIAL[id] ?? ECO.actions.find((a) => a.id === id)?.label ?? id

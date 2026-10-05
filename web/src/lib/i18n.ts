@@ -82,6 +82,11 @@ const EN = {
   'acct.body': "Callsign {name}, home {home}. {xp} XP from verified actions.",
   'acct.delete': "Delete my account and photos",
   'acct.confirm': "Delete your AIRQ account, credits, claims and proof photos? This cannot be undone.",
+  'r.event': "event",
+  'evl.smoke-2026': "Smoke Season",
+  'ev.smoke-2026': "Stubble season: Fire Watch pays double and crop-residue management pays ×1.5 until 30 Nov.",
+  'evl.diwali-2026': "Green Diwali",
+  'ev.diwali-2026': "Diwali week (8 Nov): clean-up drives and reports of waste burning pay double.",
 }
 export type Key = keyof typeof EN
 export const KEYS = Object.keys(EN) as Key[]
@@ -163,6 +168,11 @@ const HI: Record<Key, string> = {
   'acct.body': "नाम {name}, घर {home}। सत्यापित कामों से {xp} XP।",
   'acct.delete': "मेरा खाता और फ़ोटो मिटाएँ",
   'acct.confirm': "अपना AIRQ खाता, क्रेडिट, दावे और सबूत की फ़ोटो मिटाएँ? यह वापस नहीं होगा।",
+  'r.event': "इवेंट",
+  'evl.smoke-2026': "स्मोक सीज़न",
+  'ev.smoke-2026': "पराली का मौसम: 30 नवंबर तक फ़ायर वॉच पर दोगुने और पराली प्रबंधन पर ×1.5 क्रेडिट।",
+  'evl.diwali-2026': "ग्रीन दिवाली",
+  'ev.diwali-2026': "दिवाली हफ़्ता (8 नवंबर): सफ़ाई अभियान और कचरा जलने की शिकायत पर दोगुने क्रेडिट।",
 }
 
 const PA: Record<Key, string> = {
@@ -242,6 +252,11 @@ const PA: Record<Key, string> = {
   'acct.body': "ਨਾਮ {name}, ਘਰ {home}। ਤਸਦੀਕ ਹੋਏ ਕੰਮਾਂ ਤੋਂ {xp} XP।",
   'acct.delete': "ਮੇਰਾ ਖਾਤਾ ਅਤੇ ਫ਼ੋਟੋਆਂ ਮਿਟਾਓ",
   'acct.confirm': "ਆਪਣਾ AIRQ ਖਾਤਾ, ਕ੍ਰੈਡਿਟ, ਦਾਅਵੇ ਅਤੇ ਸਬੂਤ ਦੀਆਂ ਫ਼ੋਟੋਆਂ ਮਿਟਾਉਣੀਆਂ ਹਨ? ਇਹ ਵਾਪਸ ਨਹੀਂ ਹੋਵੇਗਾ।",
+  'r.event': "ਇਵੈਂਟ",
+  'evl.smoke-2026': "ਸਮੋਕ ਸੀਜ਼ਨ",
+  'ev.smoke-2026': "ਪਰਾਲੀ ਦਾ ਮੌਸਮ: 30 ਨਵੰਬਰ ਤੱਕ ਫ਼ਾਇਰ ਵਾਚ ’ਤੇ ਦੁੱਗਣੇ ਅਤੇ ਪਰਾਲੀ ਪ੍ਰਬੰਧਨ ’ਤੇ ×1.5 ਕ੍ਰੈਡਿਟ।",
+  'evl.diwali-2026': "ਗ੍ਰੀਨ ਦੀਵਾਲੀ",
+  'ev.diwali-2026': "ਦੀਵਾਲੀ ਹਫ਼ਤਾ (8 ਨਵੰਬਰ): ਸਫ਼ਾਈ ਮੁਹਿੰਮ ਅਤੇ ਕੂੜਾ ਸੜਨ ਦੀ ਸ਼ਿਕਾਇਤ ’ਤੇ ਦੁੱਗਣੇ ਕ੍ਰੈਡਿਟ।",
 }
 
 // action label, photo hint and why, keyed by action id (English lives in economy.json)

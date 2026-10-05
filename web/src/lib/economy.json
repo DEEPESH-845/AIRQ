@@ -220,5 +220,35 @@
     "beltKm": 50,
     "bufferM": 375,
     "cooldownDays": 7
-  }
+  },
+  "pact": {
+    "bonus": 30,
+    "xp": 15,
+    "minFields": 2,
+    "forgive": 1
+  },
+  "events": [
+    {
+      "id": "smoke-2026",
+      "label": "Smoke Season",
+      "from": "2026-10-01",
+      "to": "2026-11-30",
+      "mult": {
+        "fieldwatch": 2,
+        "stubble": 1.5
+      },
+      "desc": "Stubble season: Fire Watch pays double and crop-residue management pays ×1.5 until 30 Nov."
+    },
+    {
+      "id": "diwali-2026",
+      "label": "Green Diwali",
+      "from": "2026-11-05",
+      "to": "2026-11-11",
+      "mult": {
+        "cleanup": 2,
+        "burning": 2
+      },
+      "desc": "Diwali week (8 Nov): clean-up drives and reports of waste burning pay double."
+    }
+  ]
 }

@@ -147,6 +147,14 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
             <li>A fire on the field pauses rewards for {ECO.fieldWatch.cooldownDays} days. Your fire-free days go on your impact certificate.</li>
           </ol>
           <p className="fine">Why it's hard to cheat: you can't fake a satellite pass, the field can't move, and fields outside the burning belt can't register.</p>
+          <h3>Village Fire Pact</h3>
+          <p>
+            Farmers in one village create a team of the kind "Village pact" and pin their fields. Every Monday the whole week is settled from the satellite record:
+            no fire on any member's field and every farmer gets +{ECO.pact.bonus} credits, and the pact's fire-free streak grows. One fire costs the whole village
+            that week's bonus (the season's first fire is forgiven). Only a fire on the field itself counts, so a neighbour's fire can't fail the pact, and the map
+            shows each pact as one ring, never who burned.
+          </p>
+          <p className="fine">Smoke Season (until 30 Nov) pays double for every fire-free day; Green Diwali week doubles clean-ups and burning reports.</p>
         </>
       ),
     },

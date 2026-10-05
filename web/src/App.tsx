@@ -248,6 +248,7 @@ export default function App() {
         highlight={highlight}
         focus={focus}
         community={feed?.byDistrict}
+        pacts={feed?.pacts}
         fresh={fresh}
         field={mapField}
         onPick={

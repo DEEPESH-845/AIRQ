@@ -105,6 +105,7 @@ const STYLE: StyleSpecification = {
     clusters: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     community: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     field: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    pacts: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [
     { id: 'sea', type: 'background', paint: { 'background-color': '#14122b' } },
@@ -205,6 +206,27 @@ const STYLE: StyleSpecification = {
       layout: { 'text-field': ['concat', ['to-string', ['get', 'n']], ' ✓'], 'text-font': ['Open Sans Semibold'], 'text-size': 11, 'text-offset': [0, -1.3], 'text-allow-overlap': false },
       paint: { 'text-color': GREEN, 'text-halo-color': 'rgba(20,18,43,0.9)', 'text-halo-width': 1.4 },
     },
+    // village pacts: one ring per village (never per field), green while fire-free this week, amber after a fire
+    {
+      id: 'pact-ring',
+      type: 'circle',
+      source: 'pacts',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 9, 8, 22],
+        'circle-color': ['case', ['get', 'fire'], 'rgba(255,178,74,0.12)', 'rgba(143,227,168,0.14)'],
+        'circle-stroke-color': ['case', ['get', 'fire'], '#ffb24a', GREEN],
+        'circle-stroke-width': 3,
+      },
+    },
+    {
+      id: 'pact-label',
+      type: 'symbol',
+      source: 'pacts',
+      minzoom: 5,
+      // above the ring, so it never collides with a member's own field label below it
+      layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Semibold'], 'text-size': 12, 'text-offset': [0, -2.2], 'text-anchor': 'bottom', 'text-allow-overlap': true },
+      paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(20,18,43,0.9)', 'text-halo-width': 1.5 },
+    },
     { id: 'field-fill', type: 'fill', source: 'field', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': ['case', ['get', 'fire'], '#e5383b', GREEN], 'fill-opacity': 0.35 } },
     { id: 'field-line', type: 'line', source: 'field', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'line-color': ['case', ['get', 'fire'], '#e5383b', GREEN], 'line-width': 2.5 } },
     // a field is tiny at country scale: a pin keeps it findable
@@ -259,9 +281,10 @@ type Props = {
   field?: MapField
   /** when set, a map tap picks a point (Fire Watch) instead of selecting a district */
   onPick?: ((lon: number, lat: number) => void) | null
+  pacts?: { name: string; c: [number, number]; fields: number; fire: boolean }[]
 }
 
-export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight, focus = null, community = {}, fresh = [], field = null, onPick = null }: Props) {
+export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight, focus = null, community = {}, fresh = [], field = null, onPick = null, pacts = [] }: Props) {
   const el = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const tip = useRef<HTMLDivElement>(null)
@@ -444,6 +467,18 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
         : empty,
     )
   }, [field, ready])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    ;(map.getSource('pacts') as GeoJSONSource).setData({
+      type: 'FeatureCollection',
+      features: pacts.map((p) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: p.c },
+        properties: { fire: p.fire, label: `${p.name} · ${p.fields} fields · ${p.fire ? 'a fire this week' : 'fire-free this week'}` },
+      })),
+    })
+  }, [pacts, ready])
   // new actions send a ripple out from their district (constant paint values only: no re-layout)
   useEffect(() => {
     const map = mapRef.current

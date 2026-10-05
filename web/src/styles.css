@@ -686,3 +686,15 @@ button { font: inherit; color: inherit; }
 .seg.lang button[lang='hi'], .seg.lang button[lang='pa'] { font-size: 14px; }
 /* Devanagari and Gurmukhi need taller lines than Latin */
 .earn[lang='hi'], .earn[lang='pa'], .firewatch[lang='hi'], .firewatch[lang='pa'] { line-height: 1.6; }
+/* ---------- village pact */
+.pact-streak { display: flex; align-items: baseline; gap: 10px; }
+.pact-streak b { font: 800 48px/1 var(--display); color: #8fe3a8; }
+.pact-streak span { color: var(--haze); }
+.pact-weeks { list-style: none; display: flex; gap: 6px; margin: 10px 0 0; padding: 0; }
+.pact-weeks li { width: 22px; height: 22px; border-radius: 6px; background: var(--line); }
+.pact-weeks li[data-r='clean'] { background: #8fe3a8; }
+.pact-weeks li[data-r='forgiven'] { background: #ffd27a; }
+.pact-weeks li[data-r='fire'] { background: #e5383b; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.event-banner { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: linear-gradient(90deg, rgba(255, 122, 26, 0.18), rgba(255, 210, 122, 0.08)); border: 1px solid rgba(255, 122, 26, 0.45); font-size: 13.5px; }
+.event-banner b { color: #ffb36b; margin-right: 6px; }

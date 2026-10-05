@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { World } from '../lib/world'
-import { ECO, checkField, registerField, type FieldResult, type Me } from '../lib/account'
+import { ECO, checkField, eventMult, registerField, type FieldResult, type Me } from '../lib/account'
 import { ShareButton } from './ShareButton'
 import { useLang, useT } from '../lib/i18n'
 
@@ -39,7 +39,7 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
       </h2>
       {!f ? (
         <>
-          <p className="fine">{t('fw.intro', { credits: FW.credits, days: FW.cooldownDays })}</p>
+          <p className="fine">{t('fw.intro', { credits: FW.credits * eventMult('fieldwatch'), days: FW.cooldownDays })}</p>
           {pick ? (
             <div className="fw-form">
               <p className="fine">

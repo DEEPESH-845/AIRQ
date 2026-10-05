@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { World } from '../lib/world'
 import { catOf } from '../lib/naqi'
-import { ECO, actionLabel as label, deleteAccount, estimate, frontline, getChallenge, refreshFeed, streakIfActNow, submitProof, useAccount, type Me, type Receipt } from '../lib/account'
+import { ECO, activeEvents, actionLabel as label, deleteAccount, estimate, frontline, getChallenge, refreshFeed, streakIfActNow, submitProof, useAccount, type Me, type Receipt } from '../lib/account'
 import { Camera } from './Camera'
 import { FireWatch, type Pick } from './FireWatch'
 import { ShareButton } from './ShareButton'
@@ -92,6 +92,12 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
   return (
     <div className="earn" lang={lang}>
       <LangPicker />
+      {activeEvents().map((e) => (
+        <p key={e.id} className="event-banner">
+          <b>{t(`evl.${e.id}` as Key)}</b>
+          {t(`ev.${e.id}` as Key)}
+        </p>
+      ))}
       <div className="stat-row">
         <span>
           <b>{me.n}</b>
@@ -119,7 +125,8 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
             <p className="receipt">
               {result.receipt.base} {t('r.base')} {x(result.receipt.frontline)} {t('r.frontline')} {x(result.receipt.streak)} {t('r.streak')}
               {result.receipt.boost > 1 ? ` ×2 ${t('r.boost')}` : ''}
-              {result.receipt.mult < result.receipt.frontline * result.receipt.streak * result.receipt.boost ? ` (${t('r.capped')} ×${ECO.multiplierCap})` : ''}
+              {(result.receipt.event ?? 1) > 1 ? ` ×${result.receipt.event} ${t('r.event')}` : ''}
+              {result.receipt.mult < result.receipt.frontline * result.receipt.streak * result.receipt.boost * (result.receipt.event ?? 1) ? ` (${t('r.capped')} ×${ECO.multiplierCap})` : ''}
               {result.receipt.first ? ` + ${result.receipt.first} ${t('r.first')}` : ''} ={' '}
               <b>
                 +{result.receipt.credits} {t('r.credits')}

@@ -1,6 +1,6 @@
 """Self-check for the player economy. Run: python3 infra/player/check.py"""
 from datetime import datetime, timezone
-from app import (ECO, award, clean_team_name, join_team, leave_team, team_view, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
+from app import (ECO, award, ist_day, active_events, event_mult, settle_pact, pact_week, burnt_this_week, week_days, clean_team_name, join_team, leave_team, team_view, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
                  hamming, field_error, make_field, overlaps, fires_on_field, field_check, sign_cert, read_cert, cert_payload, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id)
 
 at = lambda iso: datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp()
@@ -157,7 +157,8 @@ off = [76.98 + 0.02, 29.69, 5, 3]   # ~1.9 km
 old = [76.98, 29.69, 5, 30]         # on the field but 30 h ago
 assert len(fires_on_field(fp['field'], [on, off, old])) == 1
 st, r = field_check(fp, [off, old], t0)
-assert st == 'clean' and r['credits'] == ECO['fieldWatch']['credits'] and fp['cr'] == ECO['fieldWatch']['credits'] and fp['life']['fieldwatch'] == 1
+fw_pay = ECO['fieldWatch']['credits'] * event_mult('fieldwatch', t0)  # t0 falls in Smoke Season
+assert st == 'clean' and r['credits'] == fw_pay and fp['cr'] == fw_pay and fp['life']['fieldwatch'] == 1
 assert field_check(fp, [], t0)[0] == 'done', 'once a day'
 # the look-back reaches the previous check: a fire 40 h ago is seen when the last check was 46 h ago
 assert field_check(fp, [[76.98, 29.69, 5, 40]], t0 + 46 * 3600)[0] == 'fire'
@@ -189,4 +190,47 @@ assert tb['rows'] == [{'name': 'Green Karnal', 'kind': 'school', 'score': 130, '
 leave_team(m1)
 assert 'team' not in m1 and board([m1, m2, m3], 'teams', m1, t0)['me'] is None
 assert 'kind' not in board([m1], 'states', None, t0)['rows'][0], 'states rows unchanged'
+# events: by IST date, inclusive; multipliers apply to their action and to Fire Watch
+oct5, nov8, dec1 = at('2026-10-05T06:00:00'), at('2026-11-08T06:00:00'), at('2026-12-01T06:00:00')
+assert [e['id'] for e in active_events(oct5)] == ['smoke-2026'] and event_mult('fieldwatch', oct5) == 2 and event_mult('tree', oct5) == 1
+assert event_mult('cleanup', nov8) == 2 and event_mult('fieldwatch', nov8) == 2 and event_mult('fieldwatch', dec1) == 1
+ev = roll(new_player('ev', 'h', 'Cmdr Event', D, oct5), oct5)
+r = award(ev, 'stubble', 0, oct5)
+assert r['event'] == 1.5 and r['credits'] == int(120 * 1.5 + 0.5) + 20, r
+fe = new_player('fe', 'h', 'Farmer Event', D, oct5)
+fe['field'] = make_field(76.98, 29.69, 5, igp, oct5)
+assert field_check(fe, [], oct5)[1]['credits'] == ECO['fieldWatch']['credits'] * 2, 'Smoke Season doubles Fire Watch'
+
+# strict pact fire days: only fires on the field itself (no buffer), dated by when they burned
+fs = new_player('fs', 'h', 'Farmer Strict', D, t0)
+fs['field'] = make_field(76.98, 29.69, 5, igp, t0)
+edge = [76.98 + 0.003, 29.69, 5, 3]   # ~290 m: inside the 375 m buffer, outside the 80 m field
+inside = [76.98, 29.6902, 5, 20]      # on the field, burned 20 h ago (the IST day before, within a first check's 24 h)
+field_check(fs, [edge, inside], t0)
+assert fs['field']['pburnt'] == [ist_day(t0 - 20 * 3600)] != [ist_day(t0)], fs['field']['pburnt']
+assert 'burnt' in fs['field'] and fs['field']['burnt'], 'the buffered solo check still saw a fire'
+
+# pact settlement: clean pays field-holders, one forgiven strike per season, then a fire resets the streak
+wk = week_id(t0)  # 2026-W41, the week of Mon 5 Oct
+def farm(pid, burnt=()):
+    m = new_player(pid, 'h', pid, D, t0)
+    m['field'] = dict(make_field(76.98, 29.69, 5, igp, t0), pburnt=list(burnt))
+    return m
+team = {'name': 'Kheri Pact', 'kind': 'village', 'created': int(t0 - 30 * 86400)}
+walker = new_player('w', 'h', 'No Field', D, t0)
+res, pay = settle_pact(team, [farm('a'), farm('b'), walker], wk)
+assert res == 'clean' and sorted(pay) == ['a', 'b'] and team['streak'] == 1
+assert settle_pact(team, [farm('a'), farm('b')], wk) is None, 'a week settles once'
+nxt = '2026-W42'
+fire_day = sorted(week_days(nxt))[2]
+res, pay = settle_pact(team, [farm('a', [fire_day]), farm('b')], nxt)
+assert res == 'forgiven' and pay and team['streak'] == 2, 'first strike of the season forgiven'
+res, pay = settle_pact(team, [farm('a', [sorted(week_days('2026-W43'))[0]]), farm('b')], '2026-W43')
+assert res == 'fire' and pay == [] and team['streak'] == 0
+assert settle_pact(team, [farm('a')], '2026-W44')[0] == 'small', 'one field is not a pact'
+assert [w['result'] for w in team['weeks']] == ['clean', 'forgiven', 'fire', 'small']
+young = {'name': 'New Pact', 'kind': 'village', 'created': int(t0)}
+assert settle_pact(young, [farm('a'), farm('b')], prev_week(wk)) is None, 'weeks before the pact existed are skipped'
+assert pact_week([farm('a', [fire_day]), farm('b')], nxt) == {'fields': 2, 'fired': 1}
+assert burnt_this_week(farm('z', [ist_day(t0)]), t0) and not burnt_this_week(farm('y'), t0)
 print('ok')
