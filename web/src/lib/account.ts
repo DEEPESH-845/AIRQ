@@ -17,13 +17,16 @@ export type Me = {
   ad: Record<string, number>; aw: Record<string, number>; inv: { boost?: number; shield?: number }
   streak: number; swk: string; firsts: string[]; n: number; claims: Claim[]; dset: number
   life?: Record<string, number>; earned?: number; field?: Field | null
+  team?: string; tn?: string; tk?: string
 }
+export type TeamView = { code: string; name: string; kind: string; kindLabel: string; members: number; wxp: number; verified: number; goal: number; rows: Row[] }
+export const TEAM_KINDS: [string, string][] = [['school', 'School'], ['college', 'College'], ['rwa', "Residents' association"], ['office', 'Office'], ['village', 'Village pact']]
 export type Field = { c: [number, number]; acres: number; r: number; d: string; dn: string; at: number; last: string; last_ts?: number; clean: number; burnt: string[] }
 export type FieldResult = { status: 'clean' | 'fire' | 'cooldown' | 'done' | 'gap'; receipt: { credits?: number; xp?: number; days?: number; fires?: number; until?: string; hours?: number } | null }
 export type FeedItem = { name: string; title: string; action: string; d: string; dn: string; s: string; at: string }
 export type Feed = { recent: FeedItem[]; byDistrict: Record<string, number>; byAction: Record<string, number>; total: number }
-export type Cert = { id: string; name: string; title: string; where: string; actions: number; life: Record<string, number>; earned: number; xp: number; streak: number; fieldDays: number; since: number; iat: number }
-export type Row = { rank: number; name: string; title?: string; where?: string; players?: number; score: number; me: boolean }
+export type Cert = { id: string; name: string; title: string; team?: string; where: string; actions: number; life: Record<string, number>; earned: number; xp: number; streak: number; fieldDays: number; since: number; iat: number }
+export type Row = { rank: number; name: string; title?: string; where?: string; players?: number; kind?: string; score: number; me?: boolean }
 export type Board = { scope: string; week: string; rows: Row[]; me: Row | null }
 
 // ---------- pure helpers (mirror infra/player/app.py, for previews only: the server decides)
@@ -90,6 +93,8 @@ export const getAccount = () => state
 
 async function call<T>(path: string, body?: object): Promise<T> {
   const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : undefined)
+  // an HTML page here means a CDN error page stood in for the API: never treat that as success
+  if (!r.headers.get('content-type')?.includes('json')) throw Object.assign(new Error('AIRQ HQ is busy right now. Try again in a minute.'), { status: 502 })
   const data = await r.json().catch(() => ({}))
   if (!r.ok) throw Object.assign(new Error(data.error ?? (r.status >= 500 ? 'AIRQ HQ is busy right now. Try again in a minute.' : `Request failed (${r.status})`)), { status: r.status })
   return data
@@ -136,13 +141,17 @@ export async function sync(xp: number) {
   }
 }
 
-export const submitProof = (action: string, image: string) =>
-  authed<{ ok: boolean; reason: string; receipt: Receipt | null }>('/api/proof', { action, image })
+export const submitProof = (action: string, image: string, lang = 'en') =>
+  authed<{ ok: boolean; reason: string; receipt: Receipt | null }>('/api/proof', { action, image, lang })
 export const getChallenge = (action: string) => authed<{ code: string; exp: number }>('/api/proof/challenge', { action })
 export const registerField = (lon: number, lat: number, acres: number) => authed('/api/field', { lon, lat, acres })
 export const checkField = () => authed<FieldResult>('/api/field/check')
 export const issueCert = () => authed<{ token: string }>('/api/cert')
 export const verifyCert = (t: string) => call<{ valid: boolean; cert: Cert | null }>(`/api/cert?t=${encodeURIComponent(t)}`)
+export const createTeam = (name: string, kind: string) => authed<{ team: TeamView }>('/api/team', { create: { name, kind } })
+export const joinTeam = (code: string) => authed<{ team: TeamView }>('/api/team', { join: code })
+export const leaveTeam = () => authed<{ team?: TeamView }>('/api/team', { leave: true })
+export const fetchTeam = (code: string) => call<TeamView>(`/api/team?code=${encodeURIComponent(code)}`)
 export const buy = (item: string) => authed('/api/shop', { item })
 export const equip = (item: string) => authed('/api/shop', { equip: item })
 export const fetchBoard = (scope: string) => call<Board>(`/api/leaderboard?scope=${scope}${creds ? `&pid=${encodeURIComponent(creds.pid)}` : ''}`)

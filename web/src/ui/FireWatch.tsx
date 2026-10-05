@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { World } from '../lib/world'
 import { ECO, checkField, registerField, type FieldResult, type Me } from '../lib/account'
 import { ShareButton } from './ShareButton'
+import { useLang, useT } from '../lib/i18n'
 
 export type Pick = { lon: number; lat: number }
 const FW = ECO.fieldWatch
@@ -12,6 +13,8 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [res, setRes] = useState<FieldResult | null>(null)
+  const t = useT()
+  const lang = useLang()
   const f = me.field
   const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)
   // fires the satellites saw in the last 24 h within 25 km, for context (the server decides what counts)
@@ -30,36 +33,33 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
   }
 
   return (
-    <section className="block firewatch" aria-labelledby="fw-h" data-mission="firewatch">
+    <section className="block firewatch" aria-labelledby="fw-h" data-mission="firewatch" lang={lang}>
       <h2 id="fw-h">
-        Satellite Fire Watch <em className="code-chip sat">no photo</em>
+        {t('fw.title')} <em className="code-chip sat">{t('fw.nophoto')}</em>
       </h2>
       {!f ? (
         <>
-          <p className="fine">
-            For farmers in the stubble belt. Pin your field once. Every day NASA's VIIRS satellites see no fire on it, you earn <b>{FW.credits} credits</b>. A fire on
-            the field pauses rewards for {FW.cooldownDays} days. Verified from space, nothing to fake.
-          </p>
+          <p className="fine">{t('fw.intro', { credits: FW.credits, days: FW.cooldownDays })}</p>
           {pick ? (
             <div className="fw-form">
               <p className="fine">
-                Field at {pick.lat.toFixed(4)}° N, {pick.lon.toFixed(4)}° E{' '}
+                {t('fw.at', { lat: pick.lat.toFixed(4), lon: pick.lon.toFixed(4) })}{' '}
                 <button className="linkish inline" onClick={onPick}>
-                  move pin
+                  {t('fw.move')}
                 </button>
               </p>
               <label className="field">
-                <span>Field size: {acres} acres</span>
+                <span>{t('fw.size', { n: acres })}</span>
                 <input type="range" min={FW.acresMin} max={FW.acresMax} step={0.5} value={acres} onChange={(e) => setAcres(Number(e.target.value))} />
               </label>
               <button className="primary-btn" disabled={busy} onClick={() => run(() => registerField(pick.lon, pick.lat, acres))}>
-                {busy ? 'Registering…' : 'Register my field'}
+                {busy ? t('fw.registering') : t('fw.register')}
               </button>
-              <p className="fine">The field is fixed once registered, so the satellite record stays honest.</p>
+              <p className="fine">{t('fw.fixed')}</p>
             </div>
           ) : (
             <button className="secondary-btn" onClick={onPick}>
-              Pin my field on the map
+              {t('fw.pin')}
             </button>
           )}
         </>
@@ -68,36 +68,35 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
           <div className="fw-status">
             <span>
               <b>{f.clean}</b>
-              <small>fire-free days verified</small>
+              <small>{t('fw.days')}</small>
             </span>
             <span>
               <b>{f.acres}</b>
-              <small>acres near {f.dn}</small>
+              <small>{t('fw.acres', { d: f.dn })}</small>
             </span>
             <span>
               <b style={{ color: near ? 'var(--ember)' : '#8fe3a8' }}>{near}</b>
-              <small>fires within 25 km today</small>
+              <small>{t('fw.near')}</small>
             </span>
           </div>
           {res && (
             <p className={`fw-result ${res.status}`} role="status">
-              {res.status === 'clean' && `Satellite check passed: no fire on your field in the last 24 h. +${res.receipt?.credits} credits (day ${res.receipt?.days}).`}
-              {res.status === 'fire' && `VIIRS detected ${res.receipt?.fires} fire${res.receipt?.fires === 1 ? '' : 's'} on your field. Rewards pause for ${FW.cooldownDays} days.`}
-              {res.status === 'cooldown' && `Paused after a fire on your field, until ${res.receipt?.until}.`}
-              {res.status === 'done' && "Today's check is done. The satellites pass again tonight; check tomorrow."}
-              {res.status === 'gap' && `No check for ${res.receipt?.hours} h, longer than the 60 h satellite record. Watch restarted today; check daily to keep earning.`}
+              {res.status === 'clean' && t('fw.clean', { c: res.receipt?.credits ?? 0, d: res.receipt?.days ?? 0 })}
+              {res.status === 'fire' && t('fw.fire', { n: res.receipt?.fires ?? 0, d: FW.cooldownDays })}
+              {res.status === 'cooldown' && t('fw.cooldown', { date: res.receipt?.until ?? '' })}
+              {res.status === 'done' && t('fw.done')}
+              {res.status === 'gap' && t('fw.gap', { h: res.receipt?.hours ?? 0 })}
             </p>
           )}
           {f.last_ts ? (
             <p className="fine">
-              Satellites last checked your field {new Date(f.last_ts * 1000).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}. AIRQ
-              checks automatically after every data refresh; a fire-free day pays once a day.
+              {t('fw.last', { when: new Date(f.last_ts * 1000).toLocaleString(lang === 'en' ? 'en-IN' : `${lang}-IN`, { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) })}
             </p>
           ) : null}
           {f.clean > 0 && (
             <ShareButton
               world={world}
-              label="Share my fire-free days"
+              label={t('fw.share')}
               text={`My field has stayed fire-free for ${f.clean} day${f.clean === 1 ? '' : 's'}, verified from space on AIRQ. No stubble burning here.`}
               card={() => ({
                 stat: String(f.clean),
@@ -113,10 +112,10 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
           )}
           <div className="shot-actions">
             <button className="linkish" onClick={onShow}>
-              Show on map
+              {t('fw.show')}
             </button>
             <button className="primary-btn" disabled={busy || f.last === today} onClick={() => run(async () => setRes(await checkField()))}>
-              {f.last === today ? 'Checked today' : busy ? 'Asking the satellites…' : "Run today's satellite check"}
+              {f.last === today ? t('fw.checked') : busy ? t('fw.asking') : t('fw.run')}
             </button>
           </div>
         </>

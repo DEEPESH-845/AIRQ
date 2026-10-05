@@ -1,6 +1,6 @@
 """Self-check for the player economy. Run: python3 infra/player/check.py"""
 from datetime import datetime, timezone
-from app import (ECO, award, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
+from app import (ECO, award, clean_team_name, join_team, leave_team, team_view, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
                  hamming, field_error, make_field, overlaps, fires_on_field, field_check, sign_cert, read_cert, cert_payload, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id)
 
 at = lambda iso: datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp()
@@ -176,4 +176,17 @@ body, sig = tok.split('.')
 import base64, json as _j
 forged = base64.urlsafe_b64encode(_j.dumps({**read_cert(tok, 's3cret'), 'earned': 99999}).encode()).rstrip(b'=').decode()
 assert read_cert(forged + '.' + sig, 's3cret') is None and read_cert('junk', 's3cret') is None
+# teams: names validated, join/leave, team board and goal, teams leaderboard groups by code
+assert clean_team_name("St. Mary's Eco Club") == "St. Mary's Eco Club" and not clean_team_name('x') and not clean_team_name('<script>') and not clean_team_name('a' * 31)
+T = {'name': 'Green Karnal', 'kind': 'school'}
+m1, m2, m3 = (dict(new_player(f't{i}', 'h', f'Kid {i}', D, t0), wxp=w, aw=a) for i, w, a in ((1, 50, {'tree': 2}), (2, 80, {'cycle': 1}), (3, 10, {})))
+for m in (m1, m2):
+    join_team(m, 'ABC234', T)
+v = team_view('ABC234', T, [m1, m2, m3], t0)
+assert v['members'] == 2 and v['wxp'] == 130 and v['verified'] == 3 and v['goal'] == 10 and [r['name'] for r in v['rows']] == ['Kid 2', 'Kid 1']
+tb = board([m1, m2, m3], 'teams', m1, t0)
+assert tb['rows'] == [{'name': 'Green Karnal', 'kind': 'school', 'score': 130, 'players': 2, 'rank': 1, 'me': True}], tb
+leave_team(m1)
+assert 'team' not in m1 and board([m1, m2, m3], 'teams', m1, t0)['me'] is None
+assert 'kind' not in board([m1], 'states', None, t0)['rows'][0], 'states rows unchanged'
 print('ok')

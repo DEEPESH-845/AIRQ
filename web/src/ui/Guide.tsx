@@ -126,6 +126,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
             <li>Leave faces and number plates out. Location data is stripped; photos stay private.</li>
           </ul>
           <p className="fine">Limits: {ECO.dailyProofs} proofs a day, and each action has its own daily or weekly cap.</p>
+          <p className="fine">The Earn and Fire Watch screens work in English, हिंदी and ਪੰਜਾਬੀ: pick one at the top of the Earn tab.</p>
         </>
       ),
     },
@@ -227,6 +228,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
           <ul>
             <li><b>This week</b>: XP since Monday 00:00 India time. Everyone starts level each week.</li>
             <li><b>My district</b>: just your neighbours, so you're competing with people breathing the same air.</li>
+            <li><b>Teams</b>: schools, colleges, residents' associations, offices and village pacts. Create or join one in the Team tab, share the invite link, and chase a weekly team goal together.</li>
             <li><b>States</b>: every player's weekly XP summed by home state. Rally your state.</li>
             <li><b>All time</b>: total XP.</li>
           </ul>

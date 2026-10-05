@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { fetchBoard, useAccount, type Board, type Row } from '../lib/account'
+import { TEAM_KINDS, fetchBoard, useAccount, type Board, type Row } from '../lib/account'
+
+const KIND = Object.fromEntries(TEAM_KINDS)
 
 const SCOPES = [
   { id: 'week', label: 'This week', hint: 'XP earned since Monday, India time. Resets every Monday.' },
   { id: 'district', label: 'My district', hint: 'This week, players who call your district home.' },
+  { id: 'teams', label: 'Teams', hint: "This week's XP of every member, summed by team: schools, colleges, RWAs, offices, village pacts." },
   { id: 'states', label: 'States', hint: "This week's XP of every player, summed by home state." },
   { id: 'all', label: 'All time', hint: 'Total XP: game play plus verified green actions.' },
 ]
@@ -47,14 +50,14 @@ export function Leaderboard({ enlisted, onEnlist }: { enlisted: boolean; onEnlis
       {!err && board?.scope === scope && rows.length === 0 && <p className="lede">No one has scored yet {scope === 'all' ? '' : 'this week'}. First place is open.</p>}
       <ol className="rank-list board">
         {rows.map((r) => (
-          <RowView key={`${r.rank}-${r.name}`} r={r} states={scope === 'states'} />
+          <RowView key={`${r.rank}-${r.name}`} r={r} states={scope === 'states' || scope === 'teams'} />
         ))}
         {pinned && (
           <>
             <li className="gap" aria-hidden="true">
               ⋯
             </li>
-            <RowView r={pinned} states={scope === 'states'} />
+            <RowView r={pinned} states={scope === 'states' || scope === 'teams'} />
           </>
         )}
       </ol>
@@ -78,7 +81,7 @@ function RowView({ r, states }: { r: Row; states: boolean }) {
         <span className="who">
           {r.name}
           {r.title && <em className="title-chip">{r.title}</em>}
-          <small>{states ? `${r.players} player${r.players === 1 ? '' : 's'}` : r.where}</small>
+          <small>{states ? `${r.kind ? `${KIND[r.kind] ?? r.kind} · ` : ''}${r.players} player${r.players === 1 ? '' : 's'}` : r.where}</small>
         </span>
         <b>{r.score}</b>
       </span>

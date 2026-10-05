@@ -5,14 +5,31 @@ import { ECO, actionLabel as label, deleteAccount, estimate, frontline, getChall
 import { Camera } from './Camera'
 import { FireWatch, type Pick } from './FireWatch'
 import { ShareButton } from './ShareButton'
+import { LANGS, actionText, setLang, useLang, useT, type Key } from '../lib/i18n'
 
 // what the server checks, shown while it works (the order it runs them in)
-const CHECKS = ['Photo decoded and re-encoded, location data removed', 'Fingerprint: never used before, not even a resized copy', 'Not a screen, print or AI image', 'One-time code read from the photo', 'Shows the action you picked']
+const CHECKS: Key[] = ['check.1', 'check.2', 'check.3', 'check.4', 'check.5']
+
+/** EN / हिंदी / ਪੰਜਾਬੀ for the Earn and Fire Watch screens. */
+export function LangPicker() {
+  const l = useLang()
+  return (
+    <div className="seg lang" role="radiogroup" aria-label="Language">
+      {LANGS.map(([id, name]) => (
+        <button key={id} role="radio" aria-checked={l === id} lang={id} onClick={() => setLang(id)}>
+          {name}
+        </button>
+      ))}
+    </div>
+  )
+}
 const x = (n: number) => `×${Number(n.toFixed(2))}`
 
 /** Pick a green action, photograph it, and let Nova Lite check it. Credits arrive on approval. */
 export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onCert }: { world: World; me: Me; pick: Pick | null; onPickField: () => void; onShowField: () => void; onCert: () => void }) {
   const { proofs } = useAccount()
+  const t = useT()
+  const lang = useLang()
   const home = world.districts.find((d) => d.id === me.d)
   const aqi = home?.aqi ?? 0
   const [now] = useState(() => Date.now())
@@ -60,7 +77,7 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
     setBusy(true)
     setErr('')
     try {
-      const r = await submitProof(action.id, photo.b64)
+      const r = await submitProof(action.id, photo.b64, lang)
       setResult(r)
       setPhoto(null)
       if (needsCode) setCode(null) // codes are single-use
@@ -73,44 +90,48 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
   }
 
   return (
-    <div className="earn">
+    <div className="earn" lang={lang}>
+      <LangPicker />
       <div className="stat-row">
         <span>
           <b>{me.n}</b>
-          <small>verified actions</small>
+          <small>{t('earn.verified')}</small>
         </span>
         <span>
           <b>{me.streak && me.swk ? me.streak : 0}</b>
-          <small>week eco-streak</small>
+          <small>{t('earn.streak')}</small>
         </span>
         <span title={home ? `${home.n} is ${catOf(aqi).name} right now` : ''}>
           <b style={{ color: catOf(aqi).color }}>{x(frontline(aqi))}</b>
-          <small>frontline bonus</small>
+          <small>{t('earn.frontline')}</small>
         </span>
       </div>
       <p className="fine">
-        {frontline(aqi) > 1
-          ? `${me.dn} is breathing ${catOf(aqi).name} air, so every action there pays ${x(frontline(aqi))}. Acting where the air is worst pays most.`
-          : `Frontline bonus kicks in when ${me.dn} reaches Poor air or worse.`}{' '}
-        {boost && <b>Double Credits is armed for your next action.</b>}
+        {frontline(aqi) > 1 ? t('earn.frontOn', { district: me.dn, band: catOf(aqi).name, mult: x(frontline(aqi)) }) : t('earn.frontOff', { district: me.dn })}{' '}
+        {boost && <b>{t('earn.boost')}</b>}
       </p>
 
       {result && (
         <div className="verdict-card" data-ok={result.ok} role="status">
-          <b>{result.ok ? 'Verified' : 'Not verified'}</b>
+          <b>{result.ok ? t('earn.ok') : t('earn.no')}</b>
           <p>{result.reason}</p>
           {result.receipt && (
             <p className="receipt">
-              {result.receipt.base} base {x(result.receipt.frontline)} frontline {x(result.receipt.streak)} streak
-              {result.receipt.boost > 1 ? ` ×2 boost` : ''}
-              {result.receipt.mult < result.receipt.frontline * result.receipt.streak * result.receipt.boost ? ` (capped at ×${ECO.multiplierCap})` : ''}
-              {result.receipt.first ? ` + ${result.receipt.first} first-time` : ''} = <b>+{result.receipt.credits} credits</b>, +{result.receipt.xp} XP
-              {result.receipt.shield ? '. Your Streak Shield saved the streak.' : ''}
+              {result.receipt.base} {t('r.base')} {x(result.receipt.frontline)} {t('r.frontline')} {x(result.receipt.streak)} {t('r.streak')}
+              {result.receipt.boost > 1 ? ` ×2 ${t('r.boost')}` : ''}
+              {result.receipt.mult < result.receipt.frontline * result.receipt.streak * result.receipt.boost ? ` (${t('r.capped')} ×${ECO.multiplierCap})` : ''}
+              {result.receipt.first ? ` + ${result.receipt.first} ${t('r.first')}` : ''} ={' '}
+              <b>
+                +{result.receipt.credits} {t('r.credits')}
+              </b>
+              , +{result.receipt.xp} XP
+              {result.receipt.shield ? `. ${t('r.shield')}` : ''}
             </p>
           )}
           {result.ok && (
             <ShareButton
               world={world}
+              label={t('earn.share')}
               text={`I just did something real for India's air: ${me.n} verified green action${me.n === 1 ? '' : 's'} on AIRQ.`}
               card={() => ({
                 stat: String(me.n),
@@ -127,21 +148,25 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
         </div>
       )}
 
-      <h2 className="sub">Prove a green action</h2>
-      <p className="fine">{left > 0 ? `${left} of ${ECO.dailyProofs} proofs left today.` : 'No proofs left today. Come back tomorrow.'}</p>
+      <h2 className="sub">{t('earn.title')}</h2>
+      <p className="fine">{left > 0 ? t('earn.left', { left, total: ECO.dailyProofs }) : t('earn.none')}</p>
       <ul className="actions" role="radiogroup" aria-label="Green action" data-mission="earn">
         {ECO.actions.map((a) => {
           const day = me.ad[a.id] ?? 0
           const week = me.aw[a.id] ?? 0
           const capped = day >= a.perDay || week >= a.perWeek
           const gain = estimate(a, aqi, weeks, !me.firsts.includes(a.id), boost)
+          const tx = actionText(a, lang)
+          const note = [t('earn.leftToday', { n: a.perDay - day }), a.perWeek < 7 ? t('earn.perWeek', { n: a.perWeek }) : '', me.firsts.includes(a.id) ? '' : t('earn.firstIncl', { n: ECO.firstBonus })]
+            .filter(Boolean)
+            .join(', ')
           return (
             <li key={a.id}>
               <button role="radio" aria-checked={pick === a.id} disabled={capped || left <= 0} onClick={() => choose(a.id)}>
                 <span>
-                  {a.label}
-                  {a.challenge && <em className="code-chip">code</em>}
-                  <small>{capped ? (week >= a.perWeek ? 'Weekly limit reached' : 'Done for today') : `${a.perDay - day} left today${a.perWeek < 7 ? `, ${a.perWeek}/week` : ''}${me.firsts.includes(a.id) ? '' : `, incl. +${ECO.firstBonus} first-time bonus`}`}</small>
+                  {tx.label}
+                  {a.challenge && <em className="code-chip">{t('earn.code')}</em>}
+                  <small>{capped ? (week >= a.perWeek ? t('earn.weekly') : t('earn.doneToday')) : note}</small>
                 </span>
                 <b>+{gain}</b>
               </button>
@@ -153,23 +178,20 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
       {action && (
         <div className="proof-form">
           <p className="lede">
-            <b>Photo needed:</b> {action.photo}. <small>{action.why}</small>
+            <b>{t('earn.photoNeeded')}</b> {actionText(action, lang).photo}. <small>{actionText(action, lang).why}</small>
           </p>
           {needsCode && !liveCode && !busy ? (
             <div className="code-gate">
-              <p>
-                High-value actions carry a <b>one-time code</b>. Write it by hand on paper and keep it in the photo: it proves the photo was taken just now,
-                for AIRQ.
-              </p>
+              <p>{t('earn.gate')}</p>
               <button className="primary-btn" onClick={fetchCode}>
-                Get my one-time code
+                {t('earn.getCode')}
               </button>
             </div>
           ) : busy ? (
             <ol className="checks" aria-live="polite">
               {CHECKS.filter((_, k) => needsCode || k !== 3).map((c, k) => (
                 <li key={c} data-state={k < step ? 'done' : k === step ? 'run' : 'wait'}>
-                  {c}
+                  {t(c)}
                 </li>
               ))}
             </ol>
@@ -178,10 +200,10 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
               <img className="shot" src={photo.url} alt="Your proof photo" />
               <div className="shot-actions">
                 <button className="linkish" onClick={() => setPhoto(null)}>
-                  Retake
+                  {t('earn.retake')}
                 </button>
                 <button className="primary-btn" onClick={send}>
-                  Send for verification
+                  {t('earn.send')}
                 </button>
               </div>
             </>
@@ -189,16 +211,13 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
             <>
               {liveCode && (
                 <p className="code-big" aria-live="polite">
-                  Your code <b>{liveCode}</b> <small>valid 15 minutes, one photo</small>
+                  {t('earn.yourCode')} <b>{liveCode}</b> <small>{t('earn.valid')}</small>
                 </p>
               )}
               <Camera key={pick} code={liveCode} onShot={(b64, url) => setPhoto({ b64, url })} />
             </>
           )}
-          <p className="fine">
-            Every photo goes through five checks on our server: re-encoding, fingerprint, screen and AI-image detection, the code, and the action itself (Amazon Nova AI). Photos are stored privately for 90 days for audit, never shown
-            publicly; location data is removed. Avoid faces and number plates.
-          </p>
+          <p className="fine">{t('earn.privacy')}</p>
         </div>
       )}
       {err && <p className="fine warn">{err}</p>}
@@ -206,21 +225,21 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
       <FireWatch world={world} me={me} pick={fieldPick} onPick={onPickField} onShow={onShowField} />
 
       <section className="block cert-cta" aria-labelledby="cert-h">
-        <h2 id="cert-h">Impact certificate</h2>
-        <p className="fine">A signed record of everything you've verified, with a QR code anyone, including a city office, can scan to check it's genuine.</p>
+        <h2 id="cert-h">{t('cert.title')}</h2>
+        <p className="fine">{t('cert.body')}</p>
         <button className="secondary-btn" onClick={onCert} disabled={me.n < 1 && !me.field?.clean}>
-          {me.n < 1 && !me.field?.clean ? 'Unlocks with your first verified action' : 'Issue my certificate'}
+          {me.n < 1 && !me.field?.clean ? t('cert.locked') : t('cert.issue')}
         </button>
       </section>
 
       {proofs.length > 0 && (
         <section className="block" aria-labelledby="proofs-h">
-          <h2 id="proofs-h">Recent proofs</h2>
+          <h2 id="proofs-h">{t('proofs.title')}</h2>
           <ul className="proof-list">
             {proofs.map((p) => (
               <li key={p.sk} data-ok={p.ok}>
                 <span>
-                  {label(p.action)}
+                  {p.action === 'fieldwatch' ? label(p.action) : actionText(ECO.actions.find((a) => a.id === p.action) ?? { id: p.action, label: label(p.action), photo: '', why: '' }, lang).label}
                   <small>{p.reason}</small>
                 </span>
                 <b>{p.ok ? `+${p.credits}` : '✗'}</b>
@@ -231,14 +250,12 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
       )}
 
       <details className="gloss account">
-        <summary>Your account</summary>
-        <p>
-          Callsign <b>{me.name}</b>, home {me.dn}, {me.s}. {me.eco} XP from verified actions.
-        </p>
+        <summary>{t('acct.title')}</summary>
+        <p>{t('acct.body', { name: me.name, home: `${me.dn}, ${me.s}`, xp: me.eco })}</p>
         <button
           className="linkish"
           onClick={async () => {
-            if (confirm('Delete your AIRQ account, credits, claims and proof photos? This cannot be undone.')) {
+            if (confirm(t('acct.confirm'))) {
               try {
                 await deleteAccount()
               } catch (e) {
@@ -247,7 +264,7 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
             }
           }}
         >
-          Delete my account and photos
+          {t('acct.delete')}
         </button>
       </details>
     </div>

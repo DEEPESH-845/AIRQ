@@ -19,6 +19,7 @@ page.on('dialog', (d) => d.accept())
 page.on('response', async (r) => {
   if (r.status() < 400 || !r.url().includes('/api/')) return
   const body = await r.text().catch(() => '')
+  if (/No team with that code/.test(body)) return // the audit enters a wrong invite code on purpose
   errors.push(`HTTP ${r.status()} ${new URL(r.url()).pathname}: ${body.slice(0, 120)}`)
 })
 const tag = mobile ? '[m]' : '[d]'
@@ -429,6 +430,28 @@ await step('shop', async () => {
   }
   await page.click('.shop .linkish') // Earn credits
   await page.waitForSelector('.earn')
+})
+await step('team tab', async () => {
+  await page.click('.impact .seg button:has-text("Team")')
+  await page.waitForSelector('.team', { timeout: 4000 })
+  await layout('team')
+  await page.click('.team .seg button:has-text("Create")')
+  await page.fill('.team input', 'x')
+  if (await page.isEnabled('.team .primary-btn')) bad('team create allowed a 1-letter name')
+  await page.click('.team .seg button:has-text("Join")')
+  await page.fill('.team input', 'ZZZZZZ')
+  await page.click('.team .primary-btn')
+  await page.waitForSelector('.team .warn', { timeout: 6000 })
+  if (!/No team/.test(await page.textContent('.team .warn'))) bad('bad invite code not explained')
+})
+await step('languages', async () => {
+  await page.click('.impact .seg button:has-text("Earn")')
+  for (const l of ['hi', 'pa', 'en']) {
+    await page.click(`.seg.lang button[lang="${l}"]`)
+    await wait(200)
+    if ((await page.getAttribute('.earn', 'lang')) !== l) bad(`language ${l} not applied`)
+    await layout(`earn ${l}`)
+  }
 })
 await step('leaderboard scopes', async () => {
   await page.click('.impact .seg button:has-text("Leaderboard")')

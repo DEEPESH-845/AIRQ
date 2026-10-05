@@ -451,6 +451,8 @@ Resources:
         FieldCheck: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/field/check, Method: POST } }
         CertIssue: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/cert, Method: POST } }
         CertVerify: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/cert, Method: GET } }
+        TeamPost: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/team, Method: POST } }
+        TeamGet: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/team, Method: GET } }
 
   # ---------------------------------------------------------------- cost guardrail
   Budget:

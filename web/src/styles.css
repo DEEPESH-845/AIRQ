@@ -671,3 +671,18 @@ button { font: inherit; color: inherit; }
 .cert-actions .share-btn { width: auto; margin: 0; border-radius: 999px; }
 .intro-impact { margin: -4px 0 12px !important; padding: 8px 10px; border-radius: 8px; background: rgba(143, 227, 168, 0.08); border-left: 3px solid #8fe3a8; color: var(--ink) !important; font-size: 14px; }
 .intro-impact b { color: #8fe3a8; }
+/* ---------- teams */
+.team-card { margin-top: 6px; padding: 14px; border-radius: 12px; background: linear-gradient(135deg, rgba(143, 227, 168, 0.12), rgba(255, 210, 122, 0.06)); border: 1px solid rgba(143, 227, 168, 0.35); }
+.team-card > small { color: #8fe3a8; font-weight: 700; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+.team-card h2 { margin: 2px 0 10px; font: 800 30px/1 var(--display); }
+.goal { margin-top: 12px; font-size: 13px; color: var(--haze); }
+.goal b { color: var(--ink); }
+.goal i { display: block; height: 8px; margin-top: 6px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.goal em { display: block; height: 100%; background: #8fe3a8; transition: width 0.6s ease; }
+.invite { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; }
+.invite code { font: 800 28px/1 var(--display); letter-spacing: 0.18em; color: #ffd27a; }
+.invite .share-btn { margin: 0; flex: 1; }
+.seg.lang { margin: 0 0 10px; }
+.seg.lang button[lang='hi'], .seg.lang button[lang='pa'] { font-size: 14px; }
+/* Devanagari and Gurmukhi need taller lines than Latin */
+.earn[lang='hi'], .earn[lang='pa'], .firewatch[lang='hi'], .firewatch[lang='pa'] { line-height: 1.6; }

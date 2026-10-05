@@ -44,7 +44,10 @@ export default function Certificate({ token, world, onClose }: { token: string; 
               {c.name}
               {c.title && <em className="title-chip">{c.title}</em>}
             </h2>
-            <p className="cert-where">{c.where}</p>
+            <p className="cert-where">
+              {c.where}
+              {c.team ? ` · ${c.team}` : ''}
+            </p>
             <div className="cert-stats">
               <span>
                 <b>{c.actions}</b>

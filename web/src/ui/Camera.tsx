@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { shrink } from '../lib/account'
+import { useT } from '../lib/i18n'
 
 /** Live in-app camera (rear camera on phones). Falls back to the file picker when there is no camera or no permission.
  *  The code, when given, is shown over the viewfinder so the player writes it down and keeps it in frame. */
@@ -8,6 +9,7 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
   const [state, setState] = useState<'starting' | 'live' | 'none'>('starting')
   const [flash, setFlash] = useState(false)
   const [err, setErr] = useState('')
+  const t = useT()
 
   useEffect(() => {
     let stream: MediaStream | null = null
@@ -55,7 +57,7 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
           <video ref={video} playsInline muted aria-label="Camera viewfinder" />
           {code && (
             <div className="cam-code" aria-hidden="true">
-              <small>Write on paper, keep in frame</small>
+              <small>{t('cam.write')}</small>
               <b>{code}</b>
             </div>
           )}
@@ -81,7 +83,7 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
               }
             }}
           />
-          <span>{err || `No camera access. Take or choose a photo${code ? ` showing the code ${code}` : ''}.`}</span>
+          <span>{err || `${t('cam.none')}${code ? ` (${code})` : ''}.`}</span>
         </label>
       )}
     </div>

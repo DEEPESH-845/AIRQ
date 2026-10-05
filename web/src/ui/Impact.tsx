@@ -5,24 +5,26 @@ import { nearIndia, nearestDistrict } from '../lib/story'
 import { Earn } from './Earn'
 import { Shop } from './Shop'
 import { Leaderboard } from './Leaderboard'
+import { Team } from './Team'
 import type { Pick } from './FireWatch'
 
-export type ImpactTab = 'earn' | 'shop' | 'leaders'
+export type ImpactTab = 'earn' | 'shop' | 'team' | 'leaders'
 const TABS: { id: ImpactTab; label: string }[] = [
   { id: 'earn', label: 'Earn' },
   { id: 'shop', label: 'Shop' },
+  { id: 'team', label: 'Team' },
   { id: 'leaders', label: 'Leaderboard' },
 ]
 
 /** Real-world green actions, credits, the shop and the player leaderboard. */
-export function Impact({ world, tab, onTab, home, onClose, pick, onPickField, onShowField, onCert }: { world: World; tab: ImpactTab; onTab: (t: ImpactTab) => void; home: District; onClose: () => void; pick: Pick | null; onPickField: () => void; onShowField: () => void; onCert: () => void }) {
+export function Impact({ world, tab, onTab, home, onClose, pick, onPickField, onShowField, onCert, invite }: { world: World; tab: ImpactTab; onTab: (t: ImpactTab) => void; home: District; onClose: () => void; pick: Pick | null; onPickField: () => void; onShowField: () => void; onCert: () => void; invite: string | null }) {
   const { me, status } = useAccount()
   return (
     <aside className="rankings impact" aria-label="Impact">
       <header className="panel-head">
         <div>
           <h1>Impact</h1>
-          <p>{me ? `${me.name}${me.title ? ` · ${me.title}` : ''} · ${me.dn}` : 'Clean the real air, earn credits, climb the board.'}</p>
+          <p>{me ? `${me.name}${me.title ? ` · ${me.title}` : ''} · ${me.tn ?? me.dn}` : 'Clean the real air, earn credits, climb the board.'}</p>
         </div>
         {me && (
           <span className="credits" aria-label={`${me.cr} credits`}>
@@ -50,6 +52,8 @@ export function Impact({ world, tab, onTab, home, onClose, pick, onPickField, on
           <p className="fine">Reaching AIRQ HQ…</p>
         ) : !me ? (
           <Enlist world={world} home={home} />
+        ) : tab === 'team' ? (
+          <Team me={me} invite={invite} />
         ) : tab === 'earn' ? (
           <Earn world={world} me={me} pick={pick} onPickField={onPickField} onShowField={onShowField} onCert={onCert} />
         ) : (

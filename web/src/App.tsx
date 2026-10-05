@@ -77,13 +77,16 @@ export default function App() {
 
   const selected = useMemo(() => world?.districts.find((d) => d.id === selectedId) ?? null, [world, selectedId])
   const [tracing, setTracing] = useState(false)
-  const [side, setSide] = useState<'readout' | 'rankings' | 'general' | 'impact'>('readout')
-  const [impactTab, setImpactTab] = useState<ImpactTab>('earn')
+  const invited = new URLSearchParams(location.search).has('team')
+  const [side, setSide] = useState<'readout' | 'rankings' | 'general' | 'impact'>(invited ? 'impact' : 'readout')
+  const [impactTab, setImpactTab] = useState<ImpactTab>(invited ? 'team' : 'earn')
   const [guide, setGuide] = useState(false)
   const [picking, setPicking] = useState(false)
   const [fieldPick, setFieldPick] = useState<Pick | null>(null)
   const [pickMsg, setPickMsg] = useState('')
   const [cert, setCert] = useState<string | null>(() => new URLSearchParams(location.search).get('cert'))
+  // ?team=CODE (an invite link) opens the Team tab with the code filled in
+  const [invite] = useState<string | null>(() => new URLSearchParams(location.search).get('team')?.toUpperCase().slice(0, 6) ?? null)
   const { me } = useAccount()
   const feed = useFeed()
   // districts with an action in the last 15 minutes send out a ripple
@@ -118,7 +121,7 @@ export default function App() {
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
   }, [how, cert, picking, guide, tracing, side, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps -- closeDistrict only reads history
-  const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search) && !new URLSearchParams(location.search).get('cert'))
+  const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search) && !/[?&](cert|team)=/.test(location.search))
   const [focus, setFocus] = useState<Focus>(null)
   const [introTrace, setIntroTrace] = useState<District | null>(null)
   // stable, so Intro's scene effect runs only when its step changes
@@ -278,6 +281,7 @@ export default function App() {
           onPickField={startPick}
           onShowField={showField}
           onCert={openCert}
+          invite={invite}
         />
       )}
       {side === 'readout' && !intro && !picking && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} onImpact={() => openImpact('leaders')} />}

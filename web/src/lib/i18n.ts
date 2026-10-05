@@ -1,0 +1,316 @@
+// Hindi and Punjabi for the Earn and Fire Watch screens, the ones farmers and first-time players use most.
+// Health guidance is never machine-translated here: it stays in English until a human-checked translation exists.
+import { useSyncExternalStore } from 'react'
+
+export type Lang = 'en' | 'hi' | 'pa'
+export const LANGS: [Lang, string][] = [['en', 'EN'], ['hi', 'हिंदी'], ['pa', 'ਪੰਜਾਬੀ']]
+
+const EN = {
+  'earn.verified': 'verified actions',
+  'earn.streak': 'week eco-streak',
+  'earn.frontline': 'frontline bonus',
+  'earn.frontOn': '{district} is breathing {band} air, so every action there pays {mult}. Acting where the air is worst pays most.',
+  'earn.frontOff': 'Frontline bonus kicks in when {district} reaches Poor air or worse.',
+  'earn.boost': 'Double Credits is armed for your next action.',
+  'earn.ok': 'Verified',
+  'earn.no': 'Not verified',
+  'r.base': 'base',
+  'r.frontline': 'frontline',
+  'r.streak': 'streak',
+  'r.boost': 'boost',
+  'r.capped': 'capped at',
+  'r.first': 'first-time',
+  'r.credits': 'credits',
+  'r.shield': 'Your Streak Shield saved the streak.',
+  'earn.title': 'Prove a green action',
+  'earn.left': '{left} of {total} proofs left today.',
+  'earn.none': 'No proofs left today. Come back tomorrow.',
+  'earn.weekly': 'Weekly limit reached',
+  'earn.doneToday': 'Done for today',
+  'earn.leftToday': '{n} left today',
+  'earn.perWeek': '{n}/week',
+  'earn.firstIncl': 'incl. +{n} first-time bonus',
+  'earn.code': 'code',
+  'earn.photoNeeded': 'Photo needed:',
+  'earn.gate': 'High-value actions carry a one-time code. Write it by hand on paper and keep it in the photo: it proves the photo was taken just now, for AIRQ.',
+  'earn.getCode': 'Get my one-time code',
+  'earn.yourCode': 'Your code',
+  'earn.valid': 'valid 15 minutes, one photo',
+  'earn.retake': 'Retake',
+  'earn.send': 'Send for verification',
+  'check.1': 'Photo decoded and re-encoded, location data removed',
+  'check.2': 'Fingerprint: never used before, not even a resized copy',
+  'check.3': 'Not a screen, print or AI image',
+  'check.4': 'One-time code read from the photo',
+  'check.5': 'Shows the action you picked',
+  'earn.privacy':
+    'Every photo goes through five checks on our server: re-encoding, fingerprint, screen and AI-image detection, the code, and the action itself (Amazon Nova AI). Photos are stored privately for 90 days for audit, never shown publicly; location data is removed. Avoid faces and number plates.',
+  'earn.share': 'Share card',
+  'cam.write': 'Write on paper, keep in frame',
+  'cam.none': 'No camera access. Take or choose a photo',
+  'fw.title': 'Satellite Fire Watch',
+  'fw.nophoto': 'no photo',
+  'fw.intro':
+    "For farmers in the stubble belt. Pin your field once. Every day NASA's VIIRS satellites see no fire on it, you earn {credits} credits. A fire on the field pauses rewards for {days} days. Verified from space, nothing to fake.",
+  'fw.pin': 'Pin my field on the map',
+  'fw.at': 'Field at {lat}° N, {lon}° E',
+  'fw.move': 'move pin',
+  'fw.size': 'Field size: {n} acres',
+  'fw.register': 'Register my field',
+  'fw.registering': 'Registering…',
+  'fw.fixed': 'The field is fixed once registered, so the satellite record stays honest.',
+  'fw.days': 'fire-free days verified',
+  'fw.acres': 'acres near {d}',
+  'fw.near': 'fires within 25 km today',
+  'fw.clean': 'Satellite check passed: no fire on your field in the last 24 h. +{c} credits (day {d}).',
+  'fw.fire': 'VIIRS detected {n} fire(s) on your field. Rewards pause for {d} days.',
+  'fw.cooldown': 'Paused after a fire on your field, until {date}.',
+  'fw.done': "Today's check is done. The satellites pass again tonight; check tomorrow.",
+  'fw.gap': 'No check for {h} h, longer than the 60 h satellite record. Watch restarted today; check daily to keep earning.',
+  'fw.last': 'Satellites last checked your field {when}. AIRQ checks automatically after every data refresh; a fire-free day pays once a day.',
+  'fw.share': 'Share my fire-free days',
+  'fw.show': 'Show on map',
+  'fw.checked': 'Checked today',
+  'fw.asking': 'Asking the satellites…',
+  'fw.run': "Run today's satellite check",
+  'cert.title': "Impact certificate",
+  'cert.body': "A signed record of everything you've verified, with a QR code anyone, including a city office, can scan to check it's genuine.",
+  'cert.locked': "Unlocks with your first verified action",
+  'cert.issue': "Issue my certificate",
+  'proofs.title': "Recent proofs",
+  'acct.title': "Your account",
+  'acct.body': "Callsign {name}, home {home}. {xp} XP from verified actions.",
+  'acct.delete': "Delete my account and photos",
+  'acct.confirm': "Delete your AIRQ account, credits, claims and proof photos? This cannot be undone.",
+}
+export type Key = keyof typeof EN
+export const KEYS = Object.keys(EN) as Key[]
+
+const HI: Record<Key, string> = {
+  'earn.verified': 'सत्यापित काम',
+  'earn.streak': 'हफ़्तों की इको-स्ट्रीक',
+  'earn.frontline': 'फ्रंटलाइन बोनस',
+  'earn.frontOn': '{district} में हवा {band} है, इसलिए वहाँ हर काम पर {mult} मिलता है। जहाँ हवा सबसे ख़राब है, वहाँ काम करने पर सबसे ज़्यादा मिलता है।',
+  'earn.frontOff': '{district} की हवा Poor या उससे ख़राब होने पर फ्रंटलाइन बोनस शुरू होता है।',
+  'earn.boost': 'आपके अगले काम पर डबल क्रेडिट तैयार है।',
+  'earn.ok': 'सत्यापित',
+  'earn.no': 'सत्यापित नहीं हुआ',
+  'r.base': 'आधार',
+  'r.frontline': 'फ्रंटलाइन',
+  'r.streak': 'स्ट्रीक',
+  'r.boost': 'बूस्ट',
+  'r.capped': 'अधिकतम',
+  'r.first': 'पहली बार',
+  'r.credits': 'क्रेडिट',
+  'r.shield': 'आपकी स्ट्रीक शील्ड ने स्ट्रीक बचा ली।',
+  'earn.title': 'हरा काम साबित करें',
+  'earn.left': 'आज {total} में से {left} सबूत बाकी हैं।',
+  'earn.none': 'आज के सबूत ख़त्म। कल फिर आइए।',
+  'earn.weekly': 'इस हफ़्ते की सीमा पूरी',
+  'earn.doneToday': 'आज के लिए पूरा',
+  'earn.leftToday': 'आज {n} बाकी',
+  'earn.perWeek': '{n}/हफ़्ता',
+  'earn.firstIncl': 'पहली बार का +{n} बोनस शामिल',
+  'earn.code': 'कोड',
+  'earn.photoNeeded': 'फ़ोटो चाहिए:',
+  'earn.gate': 'ज़्यादा क्रेडिट वाले कामों के लिए एक बार का कोड चाहिए। इसे काग़ज़ पर हाथ से लिखें और फ़ोटो में दिखाएँ: इससे साबित होता है कि फ़ोटो अभी, AIRQ के लिए ली गई है।',
+  'earn.getCode': 'मेरा एक बार का कोड लें',
+  'earn.yourCode': 'आपका कोड',
+  'earn.valid': '15 मिनट के लिए, एक फ़ोटो',
+  'earn.retake': 'फिर से लें',
+  'earn.send': 'जाँच के लिए भेजें',
+  'check.1': 'फ़ोटो दोबारा बनाई गई, लोकेशन की जानकारी हटाई गई',
+  'check.2': 'फ़िंगरप्रिंट: पहले कभी इस्तेमाल नहीं हुई, छोटी की गई कॉपी भी नहीं',
+  'check.3': 'स्क्रीन, प्रिंट या AI वाली फ़ोटो नहीं',
+  'check.4': 'फ़ोटो में एक बार का कोड पढ़ा गया',
+  'check.5': 'आपका चुना हुआ काम दिखता है',
+  'earn.privacy':
+    'हर फ़ोटो हमारे सर्वर पर पाँच जाँचों से गुज़रती है (Amazon Nova AI)। फ़ोटो 90 दिन तक निजी रूप से रखी जाती हैं, कभी सार्वजनिक नहीं होतीं; लोकेशन हटा दी जाती है। चेहरे और नंबर प्लेट फ़ोटो में न आने दें।',
+  'earn.share': 'शेयर कार्ड',
+  'cam.write': 'काग़ज़ पर लिखें, फ़्रेम में रखें',
+  'cam.none': 'कैमरा उपलब्ध नहीं। फ़ोटो लें या चुनें',
+  'fw.title': 'सैटेलाइट फ़ायर वॉच',
+  'fw.nophoto': 'फ़ोटो नहीं',
+  'fw.intro':
+    'पराली वाले इलाक़े के किसानों के लिए। अपना खेत एक बार चिह्नित करें। जिस भी दिन NASA के VIIRS सैटेलाइट को आपके खेत पर आग नहीं दिखेगी, आपको {credits} क्रेडिट मिलेंगे। खेत में आग लगने पर {days} दिन तक इनाम रुक जाता है। अंतरिक्ष से सत्यापित, नक़ल की कोई गुंजाइश नहीं।',
+  'fw.pin': 'नक्शे पर अपना खेत चिह्नित करें',
+  'fw.at': 'खेत: {lat}° उ, {lon}° पू',
+  'fw.move': 'पिन बदलें',
+  'fw.size': 'खेत का आकार: {n} एकड़',
+  'fw.register': 'मेरा खेत दर्ज करें',
+  'fw.registering': 'दर्ज हो रहा है…',
+  'fw.fixed': 'दर्ज होने के बाद खेत नहीं बदलता, ताकि सैटेलाइट रिकॉर्ड ईमानदार रहे।',
+  'fw.days': 'आग-मुक्त दिन सत्यापित',
+  'fw.acres': '{d} के पास एकड़',
+  'fw.near': 'आज 25 किमी के अंदर आग',
+  'fw.clean': 'सैटेलाइट जाँच पास: पिछले 24 घंटे में आपके खेत पर कोई आग नहीं। +{c} क्रेडिट (दिन {d})।',
+  'fw.fire': 'VIIRS को आपके खेत पर {n} आग दिखी। {d} दिन के लिए इनाम रुक गया।',
+  'fw.cooldown': 'खेत में आग के बाद इनाम {date} तक रुका है।',
+  'fw.done': 'आज की जाँच हो चुकी। सैटेलाइट आज रात फिर गुज़रेंगे; कल देखें।',
+  'fw.gap': '{h} घंटे से कोई जाँच नहीं, जो 60 घंटे के सैटेलाइट रिकॉर्ड से ज़्यादा है। निगरानी आज से फिर शुरू; कमाते रहने के लिए रोज़ जाँच होने दें।',
+  'fw.last': 'सैटेलाइट ने आपका खेत आख़िरी बार {when} जाँचा। AIRQ हर डेटा अपडेट के बाद अपने-आप जाँचता है; आग-मुक्त दिन का इनाम दिन में एक बार मिलता है।',
+  'fw.share': 'मेरे आग-मुक्त दिन शेयर करें',
+  'fw.show': 'नक्शे पर दिखाएँ',
+  'fw.checked': 'आज जाँच हो चुकी',
+  'fw.asking': 'सैटेलाइट से पूछ रहे हैं…',
+  'fw.run': 'आज की सैटेलाइट जाँच चलाएँ',
+  'cert.title': "इम्पैक्ट प्रमाणपत्र",
+  'cert.body': "आपके हर सत्यापित काम का हस्ताक्षरित रिकॉर्ड, QR कोड के साथ, जिसे कोई भी, नगर निगम का दफ़्तर भी, स्कैन करके असली होने की जाँच कर सकता है।",
+  'cert.locked': "आपके पहले सत्यापित काम से खुलेगा",
+  'cert.issue': "मेरा प्रमाणपत्र बनाएँ",
+  'proofs.title': "हाल के सबूत",
+  'acct.title': "आपका खाता",
+  'acct.body': "नाम {name}, घर {home}। सत्यापित कामों से {xp} XP।",
+  'acct.delete': "मेरा खाता और फ़ोटो मिटाएँ",
+  'acct.confirm': "अपना AIRQ खाता, क्रेडिट, दावे और सबूत की फ़ोटो मिटाएँ? यह वापस नहीं होगा।",
+}
+
+const PA: Record<Key, string> = {
+  'earn.verified': 'ਤਸਦੀਕ ਹੋਏ ਕੰਮ',
+  'earn.streak': 'ਹਫ਼ਤਿਆਂ ਦੀ ਈਕੋ-ਸਟ੍ਰੀਕ',
+  'earn.frontline': 'ਫਰੰਟਲਾਈਨ ਬੋਨਸ',
+  'earn.frontOn': '{district} ਵਿੱਚ ਹਵਾ {band} ਹੈ, ਇਸ ਲਈ ਉੱਥੇ ਹਰ ਕੰਮ ਦਾ {mult} ਮਿਲਦਾ ਹੈ। ਜਿੱਥੇ ਹਵਾ ਸਭ ਤੋਂ ਖ਼ਰਾਬ ਹੈ, ਉੱਥੇ ਕੰਮ ਕਰਨ ਦਾ ਸਭ ਤੋਂ ਵੱਧ ਮਿਲਦਾ ਹੈ।',
+  'earn.frontOff': '{district} ਦੀ ਹਵਾ Poor ਜਾਂ ਇਸ ਤੋਂ ਖ਼ਰਾਬ ਹੋਣ ’ਤੇ ਫਰੰਟਲਾਈਨ ਬੋਨਸ ਸ਼ੁਰੂ ਹੁੰਦਾ ਹੈ।',
+  'earn.boost': 'ਤੁਹਾਡੇ ਅਗਲੇ ਕੰਮ ’ਤੇ ਡਬਲ ਕ੍ਰੈਡਿਟ ਤਿਆਰ ਹੈ।',
+  'earn.ok': 'ਤਸਦੀਕ ਹੋ ਗਿਆ',
+  'earn.no': 'ਤਸਦੀਕ ਨਹੀਂ ਹੋਇਆ',
+  'r.base': 'ਮੂਲ',
+  'r.frontline': 'ਫਰੰਟਲਾਈਨ',
+  'r.streak': 'ਸਟ੍ਰੀਕ',
+  'r.boost': 'ਬੂਸਟ',
+  'r.capped': 'ਵੱਧ ਤੋਂ ਵੱਧ',
+  'r.first': 'ਪਹਿਲੀ ਵਾਰ',
+  'r.credits': 'ਕ੍ਰੈਡਿਟ',
+  'r.shield': 'ਤੁਹਾਡੀ ਸਟ੍ਰੀਕ ਸ਼ੀਲਡ ਨੇ ਸਟ੍ਰੀਕ ਬਚਾ ਲਈ।',
+  'earn.title': 'ਹਰਾ ਕੰਮ ਸਾਬਤ ਕਰੋ',
+  'earn.left': 'ਅੱਜ {total} ਵਿੱਚੋਂ {left} ਸਬੂਤ ਬਾਕੀ ਹਨ।',
+  'earn.none': 'ਅੱਜ ਦੇ ਸਬੂਤ ਖ਼ਤਮ। ਕੱਲ੍ਹ ਫਿਰ ਆਓ।',
+  'earn.weekly': 'ਇਸ ਹਫ਼ਤੇ ਦੀ ਹੱਦ ਪੂਰੀ',
+  'earn.doneToday': 'ਅੱਜ ਲਈ ਪੂਰਾ',
+  'earn.leftToday': 'ਅੱਜ {n} ਬਾਕੀ',
+  'earn.perWeek': '{n}/ਹਫ਼ਤਾ',
+  'earn.firstIncl': 'ਪਹਿਲੀ ਵਾਰ ਦਾ +{n} ਬੋਨਸ ਸ਼ਾਮਲ',
+  'earn.code': 'ਕੋਡ',
+  'earn.photoNeeded': 'ਫ਼ੋਟੋ ਚਾਹੀਦੀ ਹੈ:',
+  'earn.gate': 'ਵੱਧ ਕ੍ਰੈਡਿਟ ਵਾਲੇ ਕੰਮਾਂ ਲਈ ਇੱਕ ਵਾਰ ਦਾ ਕੋਡ ਚਾਹੀਦਾ ਹੈ। ਇਸ ਨੂੰ ਕਾਗ਼ਜ਼ ’ਤੇ ਹੱਥ ਨਾਲ ਲਿਖੋ ਅਤੇ ਫ਼ੋਟੋ ਵਿੱਚ ਦਿਖਾਓ: ਇਸ ਨਾਲ ਸਾਬਤ ਹੁੰਦਾ ਹੈ ਕਿ ਫ਼ੋਟੋ ਹੁਣੇ, AIRQ ਲਈ ਖਿੱਚੀ ਗਈ ਹੈ।',
+  'earn.getCode': 'ਮੇਰਾ ਇੱਕ ਵਾਰ ਦਾ ਕੋਡ ਲਓ',
+  'earn.yourCode': 'ਤੁਹਾਡਾ ਕੋਡ',
+  'earn.valid': '15 ਮਿੰਟ ਲਈ, ਇੱਕ ਫ਼ੋਟੋ',
+  'earn.retake': 'ਮੁੜ ਖਿੱਚੋ',
+  'earn.send': 'ਜਾਂਚ ਲਈ ਭੇਜੋ',
+  'check.1': 'ਫ਼ੋਟੋ ਮੁੜ ਬਣਾਈ ਗਈ, ਟਿਕਾਣੇ ਦੀ ਜਾਣਕਾਰੀ ਹਟਾਈ ਗਈ',
+  'check.2': 'ਫ਼ਿੰਗਰਪ੍ਰਿੰਟ: ਪਹਿਲਾਂ ਕਦੇ ਵਰਤੀ ਨਹੀਂ, ਛੋਟੀ ਕੀਤੀ ਕਾਪੀ ਵੀ ਨਹੀਂ',
+  'check.3': 'ਸਕ੍ਰੀਨ, ਪ੍ਰਿੰਟ ਜਾਂ AI ਵਾਲੀ ਫ਼ੋਟੋ ਨਹੀਂ',
+  'check.4': 'ਫ਼ੋਟੋ ਵਿੱਚ ਇੱਕ ਵਾਰ ਦਾ ਕੋਡ ਪੜ੍ਹਿਆ ਗਿਆ',
+  'check.5': 'ਤੁਹਾਡਾ ਚੁਣਿਆ ਕੰਮ ਦਿਖਦਾ ਹੈ',
+  'earn.privacy':
+    'ਹਰ ਫ਼ੋਟੋ ਸਾਡੇ ਸਰਵਰ ’ਤੇ ਪੰਜ ਜਾਂਚਾਂ ਵਿੱਚੋਂ ਲੰਘਦੀ ਹੈ (Amazon Nova AI)। ਫ਼ੋਟੋਆਂ 90 ਦਿਨ ਨਿੱਜੀ ਤੌਰ ’ਤੇ ਰੱਖੀਆਂ ਜਾਂਦੀਆਂ ਹਨ, ਕਦੇ ਜਨਤਕ ਨਹੀਂ ਹੁੰਦੀਆਂ; ਟਿਕਾਣਾ ਹਟਾ ਦਿੱਤਾ ਜਾਂਦਾ ਹੈ। ਚਿਹਰੇ ਅਤੇ ਨੰਬਰ ਪਲੇਟਾਂ ਫ਼ੋਟੋ ਵਿੱਚ ਨਾ ਆਉਣ ਦਿਓ।',
+  'earn.share': 'ਸ਼ੇਅਰ ਕਾਰਡ',
+  'cam.write': 'ਕਾਗ਼ਜ਼ ’ਤੇ ਲਿਖੋ, ਫ਼੍ਰੇਮ ਵਿੱਚ ਰੱਖੋ',
+  'cam.none': 'ਕੈਮਰਾ ਉਪਲਬਧ ਨਹੀਂ। ਫ਼ੋਟੋ ਖਿੱਚੋ ਜਾਂ ਚੁਣੋ',
+  'fw.title': 'ਸੈਟੇਲਾਈਟ ਫ਼ਾਇਰ ਵਾਚ',
+  'fw.nophoto': 'ਫ਼ੋਟੋ ਨਹੀਂ',
+  'fw.intro':
+    'ਪਰਾਲੀ ਵਾਲੇ ਇਲਾਕੇ ਦੇ ਕਿਸਾਨਾਂ ਲਈ। ਆਪਣਾ ਖੇਤ ਇੱਕ ਵਾਰ ਚਿੰਨ੍ਹਿਤ ਕਰੋ। ਜਿਸ ਵੀ ਦਿਨ NASA ਦੇ VIIRS ਸੈਟੇਲਾਈਟਾਂ ਨੂੰ ਤੁਹਾਡੇ ਖੇਤ ’ਤੇ ਅੱਗ ਨਹੀਂ ਦਿਖੇਗੀ, ਤੁਹਾਨੂੰ {credits} ਕ੍ਰੈਡਿਟ ਮਿਲਣਗੇ। ਖੇਤ ਵਿੱਚ ਅੱਗ ਲੱਗਣ ’ਤੇ {days} ਦਿਨ ਇਨਾਮ ਰੁਕ ਜਾਂਦਾ ਹੈ। ਪੁਲਾੜ ਤੋਂ ਤਸਦੀਕ, ਧੋਖੇ ਦੀ ਕੋਈ ਗੁੰਜਾਇਸ਼ ਨਹੀਂ।',
+  'fw.pin': 'ਨਕਸ਼ੇ ’ਤੇ ਆਪਣਾ ਖੇਤ ਚਿੰਨ੍ਹਿਤ ਕਰੋ',
+  'fw.at': 'ਖੇਤ: {lat}° ਉ, {lon}° ਪੂ',
+  'fw.move': 'ਪਿੰਨ ਬਦਲੋ',
+  'fw.size': 'ਖੇਤ ਦਾ ਆਕਾਰ: {n} ਏਕੜ',
+  'fw.register': 'ਮੇਰਾ ਖੇਤ ਦਰਜ ਕਰੋ',
+  'fw.registering': 'ਦਰਜ ਹੋ ਰਿਹਾ ਹੈ…',
+  'fw.fixed': 'ਦਰਜ ਹੋਣ ਤੋਂ ਬਾਅਦ ਖੇਤ ਨਹੀਂ ਬਦਲਦਾ, ਤਾਂ ਜੋ ਸੈਟੇਲਾਈਟ ਰਿਕਾਰਡ ਇਮਾਨਦਾਰ ਰਹੇ।',
+  'fw.days': 'ਅੱਗ-ਮੁਕਤ ਦਿਨ ਤਸਦੀਕ',
+  'fw.acres': '{d} ਨੇੜੇ ਏਕੜ',
+  'fw.near': 'ਅੱਜ 25 ਕਿ.ਮੀ. ਅੰਦਰ ਅੱਗਾਂ',
+  'fw.clean': 'ਸੈਟੇਲਾਈਟ ਜਾਂਚ ਪਾਸ: ਪਿਛਲੇ 24 ਘੰਟਿਆਂ ਵਿੱਚ ਤੁਹਾਡੇ ਖੇਤ ’ਤੇ ਕੋਈ ਅੱਗ ਨਹੀਂ। +{c} ਕ੍ਰੈਡਿਟ (ਦਿਨ {d})।',
+  'fw.fire': 'VIIRS ਨੂੰ ਤੁਹਾਡੇ ਖੇਤ ’ਤੇ {n} ਅੱਗ ਦਿਖੀ। {d} ਦਿਨ ਲਈ ਇਨਾਮ ਰੁਕ ਗਿਆ।',
+  'fw.cooldown': 'ਖੇਤ ਵਿੱਚ ਅੱਗ ਤੋਂ ਬਾਅਦ ਇਨਾਮ {date} ਤੱਕ ਰੁਕਿਆ ਹੈ।',
+  'fw.done': 'ਅੱਜ ਦੀ ਜਾਂਚ ਹੋ ਚੁੱਕੀ। ਸੈਟੇਲਾਈਟ ਅੱਜ ਰਾਤ ਫਿਰ ਲੰਘਣਗੇ; ਕੱਲ੍ਹ ਦੇਖੋ।',
+  'fw.gap': '{h} ਘੰਟਿਆਂ ਤੋਂ ਕੋਈ ਜਾਂਚ ਨਹੀਂ, ਜੋ 60 ਘੰਟਿਆਂ ਦੇ ਸੈਟੇਲਾਈਟ ਰਿਕਾਰਡ ਤੋਂ ਵੱਧ ਹੈ। ਨਿਗਰਾਨੀ ਅੱਜ ਤੋਂ ਮੁੜ ਸ਼ੁਰੂ; ਕਮਾਈ ਜਾਰੀ ਰੱਖਣ ਲਈ ਰੋਜ਼ ਜਾਂਚ ਹੋਣ ਦਿਓ।',
+  'fw.last': 'ਸੈਟੇਲਾਈਟ ਨੇ ਤੁਹਾਡਾ ਖੇਤ ਆਖ਼ਰੀ ਵਾਰ {when} ਜਾਂਚਿਆ। AIRQ ਹਰ ਡਾਟਾ ਅੱਪਡੇਟ ਤੋਂ ਬਾਅਦ ਆਪਣੇ-ਆਪ ਜਾਂਚਦਾ ਹੈ; ਅੱਗ-ਮੁਕਤ ਦਿਨ ਦਾ ਇਨਾਮ ਦਿਨ ਵਿੱਚ ਇੱਕ ਵਾਰ ਮਿਲਦਾ ਹੈ।',
+  'fw.share': 'ਮੇਰੇ ਅੱਗ-ਮੁਕਤ ਦਿਨ ਸ਼ੇਅਰ ਕਰੋ',
+  'fw.show': 'ਨਕਸ਼ੇ ’ਤੇ ਦਿਖਾਓ',
+  'fw.checked': 'ਅੱਜ ਜਾਂਚ ਹੋ ਚੁੱਕੀ',
+  'fw.asking': 'ਸੈਟੇਲਾਈਟਾਂ ਤੋਂ ਪੁੱਛ ਰਹੇ ਹਾਂ…',
+  'fw.run': 'ਅੱਜ ਦੀ ਸੈਟੇਲਾਈਟ ਜਾਂਚ ਚਲਾਓ',
+  'cert.title': "ਇੰਪੈਕਟ ਸਰਟੀਫ਼ਿਕੇਟ",
+  'cert.body': "ਤੁਹਾਡੇ ਹਰ ਤਸਦੀਕ ਹੋਏ ਕੰਮ ਦਾ ਦਸਤਖ਼ਤੀ ਰਿਕਾਰਡ, QR ਕੋਡ ਨਾਲ, ਜਿਸ ਨੂੰ ਕੋਈ ਵੀ, ਨਗਰ ਨਿਗਮ ਦਾ ਦਫ਼ਤਰ ਵੀ, ਸਕੈਨ ਕਰਕੇ ਅਸਲੀ ਹੋਣ ਦੀ ਜਾਂਚ ਕਰ ਸਕਦਾ ਹੈ।",
+  'cert.locked': "ਤੁਹਾਡੇ ਪਹਿਲੇ ਤਸਦੀਕ ਹੋਏ ਕੰਮ ਨਾਲ ਖੁੱਲ੍ਹੇਗਾ",
+  'cert.issue': "ਮੇਰਾ ਸਰਟੀਫ਼ਿਕੇਟ ਬਣਾਓ",
+  'proofs.title': "ਹਾਲੀਆ ਸਬੂਤ",
+  'acct.title': "ਤੁਹਾਡਾ ਖਾਤਾ",
+  'acct.body': "ਨਾਮ {name}, ਘਰ {home}। ਤਸਦੀਕ ਹੋਏ ਕੰਮਾਂ ਤੋਂ {xp} XP।",
+  'acct.delete': "ਮੇਰਾ ਖਾਤਾ ਅਤੇ ਫ਼ੋਟੋਆਂ ਮਿਟਾਓ",
+  'acct.confirm': "ਆਪਣਾ AIRQ ਖਾਤਾ, ਕ੍ਰੈਡਿਟ, ਦਾਅਵੇ ਅਤੇ ਸਬੂਤ ਦੀਆਂ ਫ਼ੋਟੋਆਂ ਮਿਟਾਉਣੀਆਂ ਹਨ? ਇਹ ਵਾਪਸ ਨਹੀਂ ਹੋਵੇਗਾ।",
+}
+
+// action label, photo hint and why, keyed by action id (English lives in economy.json)
+const ACTIONS: Record<'hi' | 'pa', Record<string, [string, string, string]>> = {
+  hi: {
+    stubble: ['पराली जलाए बिना फ़सल अवशेष संभालें', 'हैप्पी सीडर, बेलर या डीकंपोज़र काम करता हुआ, या बिना जले खेत में मिलाई गई पराली', 'अक्टूबर-नवंबर में पंजाब-हरियाणा-दिल्ली में पराली का धुआँ सबसे बड़ा अकेला स्रोत है।'],
+    cleancook: ['घर में LPG या बिजली के चूल्हे पर खाना बनाना शुरू करें', 'घर की रसोई में इस्तेमाल होता नया LPG या इंडक्शन चूल्हा', 'लकड़ी और उपले के चूल्हे घरों और गाँवों को PM2.5 से भर देते हैं।'],
+    tree: ['देसी पेड़ या पौधा लगाएँ', 'ज़मीन में अभी लगाया गया पौधा, मिट्टी, हाथ या औज़ार के साथ', 'पेड़ दशकों तक धूल रोकते और गलियाँ ठंडी रखते हैं, अगर वे बचे रहें।'],
+    cleanup: ['सफ़ाई अभियान में हिस्सा लें', 'कूड़ा उठाते लोग, या जगह पर भरे हुए कचरे के थैले', 'जो कचरा साफ़ हो गया, वह कभी जलाया नहीं जाएगा।'],
+    puc: ['वाहन की प्रदूषण (PUC) जाँच करवाएँ', 'PUC प्रमाणपत्र, या जाँच केंद्र पर वाहन', 'ठीक से ट्यून किया इंजन बहुत कम कालिख और NOx छोड़ता है।'],
+    burning: ['खुले में कचरा जलने की शिकायत करें', 'जलता कचरे का ढेर या उसका धुआँ, मौक़े पर ली गई फ़ोटो', 'खुले में कचरे की आग सर्दियों का बड़ा, रोका जा सकने वाला स्रोत है।'],
+    cycle: ['गाड़ी की जगह साइकिल चलाएँ या पैदल चलें', 'सड़क या रास्ते पर आपकी साइकिल, या आपका पैदल रास्ता', 'सड़क से हटी हर यात्रा ऐसा धुआँ है जो कभी निकला ही नहीं।'],
+    treecare: ['अपने लगाए पेड़ को पानी दें या उसकी रक्षा करें', 'पानी दिया जाता छोटा पेड़, या ट्री-गार्ड के साथ', 'देखभाल के बिना ज़्यादातर पौधे पहले साल में ही सूख जाते हैं।'],
+    transit: ['गाड़ी की जगह मेट्रो या बस लें', 'मेट्रो या बस के अंदर, या स्टेशन का प्लेटफ़ॉर्म', 'एक बस सड़क पर दर्जनों कारों की जगह लेती है।'],
+    compost: ['घर का कचरा अलग करें या खाद बनाएँ', 'गीले और सूखे कचरे के अलग डिब्बे, या आपका खाद गड्ढा या डिब्बा', 'अलग किया कचरा रीसायकल होता है, कूड़ाघर में जलाया नहीं जाता।'],
+    carpool: ['साझा सवारी करें', 'एक कार, कैब या ऑटो में साथ बैठे कई लोग', 'कम गाड़ियाँ, कम धुआँ और सड़क की कम धूल।'],
+  },
+  pa: {
+    stubble: ['ਪਰਾਲੀ ਸਾੜੇ ਬਿਨਾਂ ਫ਼ਸਲ ਦੀ ਰਹਿੰਦ-ਖੂੰਹਦ ਸੰਭਾਲੋ', 'ਹੈਪੀ ਸੀਡਰ, ਬੇਲਰ ਜਾਂ ਡੀਕੰਪੋਜ਼ਰ ਕੰਮ ਕਰਦਾ, ਜਾਂ ਬਿਨਾਂ ਸੜੇ ਖੇਤ ਵਿੱਚ ਮਿਲਾਈ ਪਰਾਲੀ', 'ਅਕਤੂਬਰ-ਨਵੰਬਰ ਵਿੱਚ ਪੰਜਾਬ-ਹਰਿਆਣਾ-ਦਿੱਲੀ ਵਿੱਚ ਪਰਾਲੀ ਦਾ ਧੂੰਆਂ ਸਭ ਤੋਂ ਵੱਡਾ ਇਕੱਲਾ ਸਰੋਤ ਹੈ।'],
+    cleancook: ['ਘਰ ਵਿੱਚ LPG ਜਾਂ ਬਿਜਲੀ ਦੇ ਚੁੱਲ੍ਹੇ ’ਤੇ ਖਾਣਾ ਬਣਾਉਣਾ ਸ਼ੁਰੂ ਕਰੋ', 'ਘਰ ਦੀ ਰਸੋਈ ਵਿੱਚ ਵਰਤਿਆ ਜਾਂਦਾ ਨਵਾਂ LPG ਜਾਂ ਇੰਡਕਸ਼ਨ ਚੁੱਲ੍ਹਾ', 'ਲੱਕੜ ਅਤੇ ਪਾਥੀਆਂ ਵਾਲੇ ਚੁੱਲ੍ਹੇ ਘਰਾਂ ਅਤੇ ਪਿੰਡਾਂ ਨੂੰ PM2.5 ਨਾਲ ਭਰ ਦਿੰਦੇ ਹਨ।'],
+    tree: ['ਦੇਸੀ ਰੁੱਖ ਜਾਂ ਬੂਟਾ ਲਗਾਓ', 'ਜ਼ਮੀਨ ਵਿੱਚ ਹੁਣੇ ਲਾਇਆ ਬੂਟਾ, ਮਿੱਟੀ, ਹੱਥ ਜਾਂ ਸੰਦ ਦੇ ਨਾਲ', 'ਰੁੱਖ ਦਹਾਕਿਆਂ ਤੱਕ ਧੂੜ ਰੋਕਦੇ ਅਤੇ ਗਲੀਆਂ ਠੰਢੀਆਂ ਰੱਖਦੇ ਹਨ, ਜੇ ਉਹ ਬਚੇ ਰਹਿਣ।'],
+    cleanup: ['ਸਫ਼ਾਈ ਮੁਹਿੰਮ ਵਿੱਚ ਹਿੱਸਾ ਲਓ', 'ਕੂੜਾ ਚੁੱਕਦੇ ਲੋਕ, ਜਾਂ ਥਾਂ ’ਤੇ ਭਰੇ ਕੂੜੇ ਦੇ ਥੈਲੇ', 'ਜੋ ਕੂੜਾ ਸਾਫ਼ ਹੋ ਗਿਆ, ਉਹ ਕਦੇ ਸਾੜਿਆ ਨਹੀਂ ਜਾਵੇਗਾ।'],
+    puc: ['ਵਾਹਨ ਦੀ ਪ੍ਰਦੂਸ਼ਣ (PUC) ਜਾਂਚ ਕਰਵਾਓ', 'PUC ਸਰਟੀਫ਼ਿਕੇਟ, ਜਾਂ ਜਾਂਚ ਕੇਂਦਰ ’ਤੇ ਵਾਹਨ', 'ਠੀਕ ਟਿਊਨ ਕੀਤਾ ਇੰਜਣ ਬਹੁਤ ਘੱਟ ਕਾਲਖ ਅਤੇ NOx ਛੱਡਦਾ ਹੈ।'],
+    burning: ['ਖੁੱਲ੍ਹੇ ਵਿੱਚ ਕੂੜਾ ਸੜਨ ਦੀ ਸ਼ਿਕਾਇਤ ਕਰੋ', 'ਸੜਦਾ ਕੂੜੇ ਦਾ ਢੇਰ ਜਾਂ ਉਸ ਦਾ ਧੂੰਆਂ, ਮੌਕੇ ’ਤੇ ਖਿੱਚੀ ਫ਼ੋਟੋ', 'ਖੁੱਲ੍ਹੇ ਵਿੱਚ ਕੂੜੇ ਦੀ ਅੱਗ ਸਰਦੀਆਂ ਦਾ ਵੱਡਾ, ਰੋਕਿਆ ਜਾ ਸਕਣ ਵਾਲਾ ਸਰੋਤ ਹੈ।'],
+    cycle: ['ਗੱਡੀ ਦੀ ਥਾਂ ਸਾਈਕਲ ਚਲਾਓ ਜਾਂ ਪੈਦਲ ਚੱਲੋ', 'ਸੜਕ ਜਾਂ ਰਸਤੇ ’ਤੇ ਤੁਹਾਡੀ ਸਾਈਕਲ, ਜਾਂ ਤੁਹਾਡਾ ਪੈਦਲ ਰਸਤਾ', 'ਸੜਕ ਤੋਂ ਹਟਿਆ ਹਰ ਸਫ਼ਰ ਅਜਿਹਾ ਧੂੰਆਂ ਹੈ ਜੋ ਕਦੇ ਨਿਕਲਿਆ ਹੀ ਨਹੀਂ।'],
+    treecare: ['ਆਪਣੇ ਲਾਏ ਰੁੱਖ ਨੂੰ ਪਾਣੀ ਦਿਓ ਜਾਂ ਉਸ ਦੀ ਰਾਖੀ ਕਰੋ', 'ਪਾਣੀ ਦਿੱਤਾ ਜਾਂਦਾ ਛੋਟਾ ਰੁੱਖ, ਜਾਂ ਟ੍ਰੀ-ਗਾਰਡ ਨਾਲ', 'ਦੇਖਭਾਲ ਤੋਂ ਬਿਨਾਂ ਜ਼ਿਆਦਾਤਰ ਬੂਟੇ ਪਹਿਲੇ ਸਾਲ ਹੀ ਸੁੱਕ ਜਾਂਦੇ ਹਨ।'],
+    transit: ['ਗੱਡੀ ਦੀ ਥਾਂ ਮੈਟਰੋ ਜਾਂ ਬੱਸ ਲਓ', 'ਮੈਟਰੋ ਜਾਂ ਬੱਸ ਦੇ ਅੰਦਰ, ਜਾਂ ਸਟੇਸ਼ਨ ਦਾ ਪਲੇਟਫ਼ਾਰਮ', 'ਇੱਕ ਬੱਸ ਸੜਕ ’ਤੇ ਦਰਜਨਾਂ ਕਾਰਾਂ ਦੀ ਥਾਂ ਲੈਂਦੀ ਹੈ।'],
+    compost: ['ਘਰ ਦਾ ਕੂੜਾ ਵੱਖ ਕਰੋ ਜਾਂ ਖਾਦ ਬਣਾਓ', 'ਗਿੱਲੇ ਅਤੇ ਸੁੱਕੇ ਕੂੜੇ ਦੇ ਵੱਖਰੇ ਡੱਬੇ, ਜਾਂ ਤੁਹਾਡਾ ਖਾਦ ਵਾਲਾ ਟੋਆ ਜਾਂ ਡੱਬਾ', 'ਵੱਖ ਕੀਤਾ ਕੂੜਾ ਰੀਸਾਈਕਲ ਹੁੰਦਾ ਹੈ, ਕੂੜਾਘਰ ਵਿੱਚ ਸਾੜਿਆ ਨਹੀਂ ਜਾਂਦਾ।'],
+    carpool: ['ਸਾਂਝੀ ਸਵਾਰੀ ਕਰੋ', 'ਇੱਕ ਕਾਰ, ਕੈਬ ਜਾਂ ਆਟੋ ਵਿੱਚ ਇਕੱਠੇ ਬੈਠੇ ਕਈ ਲੋਕ', 'ਘੱਟ ਗੱਡੀਆਂ, ਘੱਟ ਧੂੰਆਂ ਅਤੇ ਸੜਕ ਦੀ ਘੱਟ ਧੂੜ।'],
+  },
+}
+const DICT: Record<Lang, Record<Key, string>> = { en: EN, hi: HI, pa: PA }
+
+// ---------- store: the choice persists per browser
+let lang: Lang = (() => {
+  try {
+    const v = localStorage.getItem('airq.lang')
+    return v === 'hi' || v === 'pa' ? v : 'en'
+  } catch {
+    return 'en'
+  }
+})()
+const subs = new Set<() => void>()
+const subscribe = (f: () => void) => {
+  subs.add(f)
+  return () => void subs.delete(f)
+}
+const snapshot = () => lang
+export const useLang = () => useSyncExternalStore(subscribe, snapshot)
+export const getLang = () => lang
+export function setLang(l: Lang) {
+  lang = l
+  try {
+    localStorage.setItem('airq.lang', l)
+  } catch {
+    /* the choice lasts for this visit */
+  }
+  subs.forEach((f) => f())
+}
+
+export const fill = (s: string, v?: Record<string, string | number>) => s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m))
+export const translate = (l: Lang, key: Key, v?: Record<string, string | number>) => fill(DICT[l][key] ?? EN[key], v)
+/** t('earn.left', { left: 3, total: 6 }) in the player's language. */
+export function useT() {
+  const l = useLang()
+  return (key: Key, v?: Record<string, string | number>) => translate(l, key, v)
+}
+/** An action's label, photo hint and reason in the player's language (English from economy.json otherwise). */
+export function actionText(a: { id: string; label: string; photo: string; why: string }, l: Lang) {
+  const tr = l === 'en' ? undefined : ACTIONS[l][a.id]
+  return tr ? { label: tr[0], photo: tr[1], why: tr[2] } : { label: a.label, photo: a.photo, why: a.why }
+}
