@@ -3,6 +3,7 @@ import type { World } from '../lib/world'
 import { catOf } from '../lib/naqi'
 import { ECO, activeEvents, actionLabel as label, deleteAccount, estimate, frontline, getChallenge, refreshFeed, streakIfActNow, submitProof, useAccount, type Me, type Receipt } from '../lib/account'
 import { Camera } from './Camera'
+import { useNow } from '../lib/now'
 import { FireWatch, type Pick } from './FireWatch'
 import { ShareButton } from './ShareButton'
 import { LANGS, actionText, setLang, useLang, useT, type Key } from '../lib/i18n'
@@ -32,7 +33,7 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
   const lang = useLang()
   const home = world.districts.find((d) => d.id === me.d)
   const aqi = home?.aqi ?? 0
-  const [now] = useState(() => Date.now())
+  const now = useNow(15000)
   const weeks = streakIfActNow(me, now)
   const [pick, setPick] = useState<string | null>(null)
   const [photo, setPhoto] = useState<{ b64: string; url: string } | null>(null)
@@ -43,7 +44,7 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
   const [step, setStep] = useState(0)
   const action = ECO.actions.find((a) => a.id === pick)
   const needsCode = !!action?.challenge
-  const liveCode = code && code.action === pick && code.exp * 1000 > Date.now() ? code.code : undefined
+  const liveCode = code && code.action === pick && code.exp * 1000 > now ? code.code : undefined
   const left = ECO.dailyProofs - me.pt
   const boost = (me.inv.boost ?? 0) > 0
 
@@ -51,7 +52,6 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
   // walk the checklist while the server works; it stops on the last step until the answer lands
   useEffect(() => {
     if (!busy) return
-    setStep(0)
     const t = setInterval(() => setStep((k) => Math.min(k + 1, CHECKS.length - 1)), 900)
     return () => clearInterval(t)
   }, [busy])
@@ -74,6 +74,7 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
   }
   const send = async () => {
     if (!action || !photo || busy) return
+    setStep(0)
     setBusy(true)
     setErr('')
     try {

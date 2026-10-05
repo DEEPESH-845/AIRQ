@@ -114,19 +114,19 @@ export async function drawCard(card: Card, world: World): Promise<Blob> {
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('canvas'))), 'image/png'))
 }
 
-/** The share sheet where the browser can share files (phones), else a download. Returns how it went. */
-export async function shareCard(blob: Blob, text: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
-  const file = new File([blob], 'airq-impact.png', { type: 'image/png' })
+/** Must run straight from a tap (iOS Safari refuses the share sheet after an await). Falls back to a download. */
+export async function shareFile(file: File, text: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], text })
       return 'shared'
-    } catch {
-      return 'cancelled'
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return 'cancelled' // they closed the sheet
+      // anything else (e.g. NotAllowedError): save the image instead of failing silently
     }
   }
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
+  a.href = URL.createObjectURL(file)
   a.download = file.name
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 4000)

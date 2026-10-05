@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNow } from '../lib/now'
 import type { District } from '../lib/world'
 import { SOURCE_TYPES, channelFor, complaintText, emailLink, xLink, type SourceType } from '../lib/complaint'
 
@@ -10,7 +11,8 @@ export function ReportSource({ d }: { d: District }) {
   const [note, setNote] = useState('')
   const channel = channelFor(d.s)
 
-  const complaint = type ? { type, where, coords, when: new Date() } : null
+  const now = useNow(60000)
+  const complaint = type ? { type, where, coords, when: new Date(now) } : null
 
   const locate = () => {
     setNote('Finding your location…')

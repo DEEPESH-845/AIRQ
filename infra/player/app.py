@@ -517,6 +517,21 @@ def settle_pact(team, members, wk):
     return result, ([m['pid'] for m in members if m.get('field')] if result in ('clean', 'forgiven') else [])
 
 
+SETTLE_AFTER_H = 24  # VIIRS detections arrive hours late: settle last week only once Tuesday (IST) has begun
+
+
+def settle_due(now):
+    """The week to settle now, or None while Monday's late satellite passes may still bring last week's fires."""
+    wk = week_id(now)
+    monday = datetime.strptime(wk + '-1', '%G-W%V-%u').replace(tzinfo=IST)
+    return prev_week(wk) if now - monday.timestamp() >= SETTLE_AFTER_H * 3600 else None
+
+
+def pact_locked(team, now):
+    """While last week awaits its verdict, nobody joins or leaves a village pact (no dodging a fire, no inheriting one)."""
+    return team.get('kind') == 'village' and week_id(team['created']) <= prev_week(week_id(now)) and team.get('settled', '') < prev_week(week_id(now))
+
+
 def burnt_this_week(p, now):
     f = p.get('field') or {}
     return bool(week_days(week_id(now)) & set(f.get('pburnt', [])))
@@ -871,6 +886,9 @@ def feed():
     return reply(200, _feed['data'])
 
 
+PACT_PUBLIC_MIN = 3
+
+
 def pact_layer(now):
     """Village pacts for the map: centre of members' fields and whether any saw a fire this week. Never per field or member."""
     groups = {}
@@ -880,7 +898,9 @@ def pact_layer(now):
     out = []
     for code, g in groups.items():
         cs = [m['field']['c'] for m in g['fields']]
-        out.append({'name': g['name'], 'c': [round(sum(c[0] for c in cs) / len(cs), 3), round(sum(c[1] for c in cs) / len(cs), 3)],
+        if len(cs) < PACT_PUBLIC_MIN:  # a pact of one or two fields would point at a farmer's field and whether it burned
+            continue
+        out.append({'name': g['name'], 'c': [round(sum(c[0] for c in cs) / len(cs), 1), round(sum(c[1] for c in cs) / len(cs), 1)],  # ~10 km
                     'fields': len(cs), 'fire': any(burnt_this_week(m, now) for m in g['fields'])})
     return out
 
@@ -975,7 +995,9 @@ def pact_job(now=None):
     from boto3.dynamodb.conditions import Attr
     from botocore.exceptions import ClientError
     now = now or time.time()
-    wk = prev_week(week_id(now))
+    wk = settle_due(now)
+    if not wk:
+        return {}
     table, kw, out = aws('ddb').Table(PROOFS), {'FilterExpression': Attr('pk').begins_with('team#') & Attr('kind').eq('village')}, {}
     _board['at'] = 0  # fresh fields for the verdict
     players = all_players()
@@ -1095,8 +1117,11 @@ def team(event, body):
     if not p:
         return reply(401, {'error': 'Unknown player.'})
     if body.get('leave'):
+        mine = team_item(p.get('team')) or {}
+        if pact_locked(mine, now):
+            return reply(400, {'error': "The pact is settling last week. You can leave once Tuesday's verdict is in."})
         if p.get('tk') == 'village' and burnt_this_week(p, now):
-            return reply(400, {'error': "A fire was seen on your field this week. You can leave after Monday's pact verdict."})
+            return reply(400, {'error': "A fire was seen on your field this week. You can leave after next Tuesday's pact verdict."})
         p, _ = mutate(body, lambda q: (leave_team(q), True))
         _board['at'] = 0  # boards show the change at once
         return reply(200, {'me': public(p)})
@@ -1127,7 +1152,17 @@ def team(event, body):
             return reply(400, {'error': 'No team with that code. Check it with whoever invited you.'})
         if sum(1 for x in all_players() if x.get('team') == code) >= TEAM_MAX:
             return reply(400, {'error': f'This team is full ({TEAM_MAX} members).'})
-    p, _ = mutate(body, lambda q: (join_team(q, code, t), True))
+        if pact_locked(t, now):
+            return reply(400, {'error': "This pact is settling last week. Join once Tuesday's verdict is in."})
+
+    def enter(q):  # re-checked inside the write: two quick joins can't leave a player half-moved
+        if q.get('team'):
+            return 'Leave your current team first.', False
+        join_team(q, code, t)
+        return None, True
+    p, err = mutate(body, enter)
+    if err:
+        return reply(400, {'error': err})
     _board['at'] = 0
     return reply(200, {'me': public(p), 'team': team_view(code, t, [x for x in all_players() if x['pid'] != p['pid']] + [p], now)})
 

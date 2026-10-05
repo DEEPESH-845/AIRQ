@@ -3,12 +3,13 @@ import type { District, World } from '../lib/world'
 import { CATS, catIndex } from '../lib/naqi'
 import { replayRound, scoreCall } from '../lib/replay'
 import { act, canReplay, recordReplay, usePlayer } from '../lib/player'
+import { useNow } from '../lib/now'
 
 /** Call "now" from yesterday's reading, then see the real answer next to the AIRQ forecast (CAMS). */
 export function Replay({ world, d }: { world: World; d: District }) {
   const p = usePlayer()
   const [call, setCall] = useState<number | null>(null)
-  const [now] = useState(() => Date.now())
+  const now = useNow(60000) // a panel left open past IST midnight starts the new day's replay
   const round = replayRound(world, d.id)
   if (!round) return null
   const hours = Math.round((new Date(world.generatedAt).getTime() - new Date(round.at).getTime()) / 3600e3)

@@ -1,6 +1,6 @@
 """Self-check for the player economy. Run: python3 infra/player/check.py"""
 from datetime import datetime, timezone
-from app import (ECO, award, ist_day, active_events, event_mult, settle_pact, pact_week, burnt_this_week, week_days, clean_team_name, join_team, leave_team, team_view, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
+from app import (ECO, award, ist_day, settle_due, pact_locked, active_events, event_mult, settle_pact, pact_week, burnt_this_week, week_days, clean_team_name, join_team, leave_team, team_view, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
                  hamming, field_error, make_field, overlaps, fires_on_field, field_check, sign_cert, read_cert, cert_payload, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id)
 
 at = lambda iso: datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp()
@@ -233,4 +233,13 @@ young = {'name': 'New Pact', 'kind': 'village', 'created': int(t0)}
 assert settle_pact(young, [farm('a'), farm('b')], prev_week(wk)) is None, 'weeks before the pact existed are skipped'
 assert pact_week([farm('a', [fire_day]), farm('b')], nxt) == {'fields': 2, 'fired': 1}
 assert burnt_this_week(farm('z', [ist_day(t0)]), t0) and not burnt_this_week(farm('y'), t0)
+# settle only from Tuesday 00:00 IST (late VIIRS passes); joins and leaves lock until last week is settled
+mon = at('2026-10-05T00:30:00')   # Mon 06:00 IST
+tue = at('2026-10-05T18:31:00')   # Tue 00:01 IST
+assert settle_due(mon) is None and settle_due(tue) == '2026-W40'
+old = {'kind': 'village', 'created': int(t0 - 30 * 86400), 'settled': '2026-W39'}
+assert pact_locked(old, mon) and pact_locked(old, tue)
+assert not pact_locked(dict(old, settled='2026-W40'), tue)
+assert not pact_locked(dict(old, kind='school'), mon), 'only village pacts lock'
+assert not pact_locked({'kind': 'village', 'created': int(mon)}, mon), 'a brand-new pact has no week to settle'
 print('ok')

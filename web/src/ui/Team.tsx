@@ -1,37 +1,32 @@
 import { useEffect, useState } from 'react'
 import { TEAM_KINDS, createTeam, fetchTeam, joinTeam, leaveTeam, type Me, type Pact, type TeamView } from '../lib/account'
-
-const RESULT: Record<string, string> = { clean: 'Fire-free week', forgiven: 'Fire forgiven (season strike)', fire: 'A fire: streak reset', small: 'Too few fields to count' }
+import { useLang, useT, type Key } from '../lib/i18n'
+import { LangPicker } from './Earn'
 
 /** Village Fire Pact: the members' fields settle together each week, from NASA VIIRS. Aggregates only, never who burned. */
 function PactPanel({ pact, hasField }: { pact: Pact; hasField: boolean }) {
+  const t = useT()
   const ready = pact.fields >= pact.minFields
   return (
     <section className="block pact" aria-labelledby="pact-h">
-      <h2 id="pact-h">Village Fire Pact</h2>
+      <h2 id="pact-h">{t('pact.title')}</h2>
       <div className="pact-streak">
         <b>{pact.streak}</b>
-        <span>fire-free week{pact.streak === 1 ? '' : 's'} in a row</span>
+        <span>{t('pact.streak')}</span>
       </div>
       <p className="lede">
-        {!ready
-          ? `A pact needs at least ${pact.minFields} farmers with pinned fields (now ${pact.fields}).`
-          : pact.firedThisWeek
-            ? 'A fire was seen on a pact field this week. The verdict comes on Monday.'
-            : `No fire on any of the ${pact.fields} pact fields so far this week.`}
+        {!ready ? t('pact.small', { min: pact.minFields, n: pact.fields }) : pact.firedThisWeek ? t('pact.fired') : t('pact.clean', { n: pact.fields })}
       </p>
       <p className="fine">
-        Every fire-free week pays <b>+{pact.bonus} credits</b> to each farmer in the pact. One fire on any member's field costs the whole village that week's bonus.
-        {pact.strikeLeft ? ' The first fire this season is forgiven.' : " This season's forgiven fire has been used."} Only a fire on the field itself counts, so a neighbour's fire can't
-        fail the pact.
+        {t('pact.rule', { bonus: `+${pact.bonus}` })} {pact.strikeLeft ? t('pact.strikeLeft') : t('pact.strikeUsed')}
       </p>
-      {!hasField && <p className="fine warn">Pin your field in Earn → Satellite Fire Watch so it counts for the pact.</p>}
+      {!hasField && <p className="fine warn">{t('pact.pin')}</p>}
       {pact.weeks.length > 0 && (
         <ol className="pact-weeks" aria-label="Past weeks">
           {pact.weeks.map((w) => (
-            <li key={w.wk} data-r={w.result} title={`${w.wk}: ${RESULT[w.result]}, ${w.fields} fields`}>
+            <li key={w.wk} data-r={w.result} title={`${w.wk}: ${t(`pact.r.${w.result}` as Key)}`}>
               <span className="sr-only">
-                {w.wk}: {RESULT[w.result]}
+                {w.wk}: {t(`pact.r.${w.result}` as Key)}
               </span>
             </li>
           ))}
@@ -43,8 +38,10 @@ function PactPanel({ pact, hasField }: { pact: Pact; hasField: boolean }) {
 
 /** Teams: schools, colleges, residents' associations, offices, village pacts. One team per player; join by invite code. */
 export function Team({ me, invite }: { me: Me; invite: string | null }) {
+  const t = useT()
+  const lang = useLang()
   const [view, setView] = useState<TeamView | null>(null)
-  const [mode, setMode] = useState<'join' | 'create'>(invite ? 'join' : 'join')
+  const [mode, setMode] = useState<'join' | 'create'>('join')
   const [code, setCode] = useState(invite ?? '')
   const [name, setName] = useState('')
   const [kind, setKind] = useState('school')
@@ -55,7 +52,6 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
   useEffect(() => {
     let live = true
     if (me.team) fetchTeam(me.team).then((v) => live && setView(v), (e) => live && setErr((e as Error).message))
-    else setView(null)
     return () => {
       live = false
     }
@@ -74,31 +70,32 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
     }
   }
 
-  if (me.team && view) {
+  if (me.team && view?.code === me.team) {
     const link = `${location.origin}/?team=${view.code}`
     const pct = Math.min(100, Math.round((view.verified / view.goal) * 100))
     return (
-      <div className="team">
+      <div className="team" lang={lang}>
+        <LangPicker />
         <div className="team-card">
-          <small>{view.kindLabel}</small>
+          <small>{t(`kind.${view.kind}` as Key)}</small>
           <h2>{view.name}</h2>
           <div className="stat-row">
             <span>
               <b>{view.members}</b>
-              <small>members</small>
+              <small>{t('team.members')}</small>
             </span>
             <span>
               <b>{view.wxp}</b>
-              <small>XP this week</small>
+              <small>{t('team.xp')}</small>
             </span>
             <span>
               <b>{view.verified}</b>
-              <small>verified actions this week</small>
+              <small>{t('team.verified')}</small>
             </span>
           </div>
-          <div className="goal" role="progressbar" aria-valuemin={0} aria-valuemax={view.goal} aria-valuenow={view.verified} aria-label="This week's team goal">
+          <div className="goal" role="progressbar" aria-valuemin={0} aria-valuemax={view.goal} aria-valuenow={view.verified} aria-label={t('team.goal', { n: view.goal })}>
             <span>
-              Team goal: <b>{view.goal}</b> verified green actions this week {view.verified >= view.goal ? '· reached!' : ''}
+              {t('team.goal', { n: view.goal })} {view.verified >= view.goal ? t('team.reached') : ''}
             </span>
             <i>
               <em style={{ width: `${pct}%` }} />
@@ -107,31 +104,31 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
         </div>
         {view.pact && <PactPanel pact={view.pact} hasField={!!me.field} />}
         <section className="block" aria-labelledby="inv-h">
-          <h2 id="inv-h">Invite your people</h2>
-          <p className="fine">Anyone who opens the link or enters the code joins {view.name}.</p>
+          <h2 id="inv-h">{t('team.invite')}</h2>
+          <p className="fine">{t('team.inviteBody', { team: view.name })}</p>
           <p className="invite">
             <code>{view.code}</code>
             <button
               className="share-btn"
               onClick={async () => {
-                const text = `Join ${view.name} on AIRQ and help clean India's air: ${link}`
+                const text = t('team.shareText', { team: view.name, link })
                 try {
                   if (navigator.share) await navigator.share({ text, url: link })
                   else {
                     await navigator.clipboard.writeText(link)
-                    setShared('Invite link copied')
+                    setShared(t('team.copied'))
                   }
                 } catch {
                   /* share sheet dismissed */
                 }
               }}
             >
-              {shared || 'Share invite'}
+              {shared || t('team.share')}
             </button>
           </p>
         </section>
         <section className="block" aria-labelledby="mem-h">
-          <h2 id="mem-h">Members this week</h2>
+          <h2 id="mem-h">{t('team.board')}</h2>
           <ol className="rank-list board">
             {view.rows.map((r) => (
               <li key={r.rank} data-me={r.name === me.name}>
@@ -152,10 +149,10 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
           className="linkish"
           disabled={busy}
           onClick={() => {
-            if (confirm(`Leave ${view.name}?`)) void run(() => leaveTeam())
+            if (confirm(t('team.leaveConfirm', { team: view.name }))) void run(() => leaveTeam())
           }}
         >
-          Leave team
+          {t('team.leave')}
         </button>
         {err && <p className="fine warn">{err}</p>}
       </div>
@@ -163,14 +160,15 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
   }
 
   return (
-    <div className="team">
-      <p className="lede">Join your school, college, residents' association, office or village. Teams climb their own leaderboard and chase a weekly goal together.</p>
-      <div className="seg" role="radiogroup" aria-label="Join or create">
+    <div className="team" lang={lang}>
+      <LangPicker />
+      <p className="lede">{t('team.intro')}</p>
+      <div className="seg" role="radiogroup" aria-label={`${t('team.joinTab')} / ${t('team.createTab')}`}>
         <button role="radio" aria-checked={mode === 'join'} onClick={() => setMode('join')}>
-          Join with a code
+          {t('team.joinTab')}
         </button>
         <button role="radio" aria-checked={mode === 'create'} onClick={() => setMode('create')}>
-          Create a team
+          {t('team.createTab')}
         </button>
       </div>
       {mode === 'join' ? (
@@ -182,11 +180,11 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
           }}
         >
           <label className="field">
-            <span>Invite code</span>
+            <span>{t('team.code')}</span>
             <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="e.g. K7QPMZ" autoCapitalize="characters" />
           </label>
           <button className="primary-btn" disabled={busy || code.trim().length !== 6}>
-            {busy ? 'Joining…' : 'Join team'}
+            {busy ? t('team.joining') : t('team.join')}
           </button>
         </form>
       ) : (
@@ -198,21 +196,21 @@ export function Team({ me, invite }: { me: Me; invite: string | null }) {
           }}
         >
           <label className="field">
-            <span>Team name</span>
+            <span>{t('team.name')}</span>
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={30} placeholder="e.g. DPS Karnal Eco Club" />
           </label>
           <label className="field">
-            <span>Kind of team</span>
+            <span>{t('team.kind')}</span>
             <select value={kind} onChange={(e) => setKind(e.target.value)}>
-              {TEAM_KINDS.map(([k, l]) => (
+              {TEAM_KINDS.map(([k]) => (
                 <option key={k} value={k}>
-                  {l}
+                  {t(`kind.${k}` as Key)}
                 </option>
               ))}
             </select>
           </label>
           <button className="primary-btn" disabled={busy || name.trim().length < 3}>
-            {busy ? 'Creating…' : 'Create team'}
+            {busy ? t('team.creating') : t('team.create')}
           </button>
         </form>
       )}

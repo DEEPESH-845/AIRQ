@@ -291,11 +291,14 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
   const mapRef = useRef<MLMap | null>(null)
   const [ready, setReady] = useState(false)
   const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
   const onPickRef = useRef(onPick)
-  onPickRef.current = onPick
   const byId = useRef(new Map<string, District>())
-  byId.current = new Map(world.districts.map((d) => [d.id, d]))
+  // latest callbacks and districts for the map's own event handlers; declared first so later effects see fresh values
+  useEffect(() => {
+    onSelectRef.current = onSelect
+    onPickRef.current = onPick
+    byId.current = new Map(world.districts.map((d) => [d.id, d]))
+  })
 
   // create the map once
   useEffect(() => {
@@ -475,7 +478,7 @@ export function AirqMap({ world, selected, onSelect, panelOpen, trace, highlight
       features: pacts.map((p) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: p.c },
-        properties: { fire: p.fire, label: `${p.name} · ${p.fields} fields · ${p.fire ? 'a fire this week' : 'fire-free this week'}` },
+        properties: { fire: p.fire, label: p.name }, // status is the ring colour; map glyphs are Latin-only, so no translated text
       })),
     })
   }, [pacts, ready])

@@ -149,7 +149,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
           <p className="fine">Why it's hard to cheat: you can't fake a satellite pass, the field can't move, and fields outside the burning belt can't register.</p>
           <h3>Village Fire Pact</h3>
           <p>
-            Farmers in one village create a team of the kind "Village pact" and pin their fields. Every Monday the whole week is settled from the satellite record:
+            Farmers in one village create a team of the kind "Village pact" and pin their fields. Every Tuesday the previous week is settled from the satellite record (a day late, so slow satellite passes count):
             no fire on any member's field and every farmer gets +{ECO.pact.bonus} credits, and the pact's fire-free streak grows. One fire costs the whole village
             that week's bonus (the season's first fire is forgiven). Only a fire on the field itself counts, so a neighbour's fire can't fail the pact, and the map
             shows each pact as one ring, never who burned.

@@ -3,6 +3,7 @@ import type { World } from '../lib/world'
 import { ECO, checkField, eventMult, registerField, type FieldResult, type Me } from '../lib/account'
 import { ShareButton } from './ShareButton'
 import { useLang, useT } from '../lib/i18n'
+import { useNow } from '../lib/now'
 
 export type Pick = { lon: number; lat: number }
 const FW = ECO.fieldWatch
@@ -16,7 +17,8 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
   const t = useT()
   const lang = useLang()
   const f = me.field
-  const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)
+  const now = useNow(60000)
+  const today = new Date(now + 5.5 * 3600e3).toISOString().slice(0, 10)
   // fires the satellites saw in the last 24 h within 25 km, for context (the server decides what counts)
   const near = f ? world.fires.filter((x) => x[3] <= 24 && dist(f.c, [x[0], x[1]]) <= 25).length : 0
 

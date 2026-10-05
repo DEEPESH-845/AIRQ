@@ -418,7 +418,9 @@ Resources:
       CodeUri: ../build/player
       Handler: app.handler
       MemorySize: 1024 # Pillow decodes and fingerprints every proof photo
-      Timeout: 29
+      # HTTP calls still end at API Gateway's 30 s; the post-tick Fire Watch and pact jobs need longer.
+      # ponytail: one job run scans every field; give the jobs their own function past ~5k fields
+      Timeout: 300
       Environment:
         Variables:
           PLAYERS_TABLE: !Ref Players

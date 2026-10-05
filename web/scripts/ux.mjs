@@ -98,9 +98,15 @@ await page.goto(base + '/', { waitUntil: 'networkidle' })
 await page.keyboard.press('Escape')
 await page.waitForTimeout(2000)
 await page.mouse.move(720, 600)
-for (let i = 0; i < 8; i++) await page.mouse.wheel(0, -250), await page.waitForTimeout(120)
+for (let i = 0; i < 8; i++) {
+  await page.mouse.wheel(0, -250)
+  await page.waitForTimeout(120)
+}
 await page.waitForTimeout(2500)
-for (let i = 0; i < 10; i++) await page.mouse.wheel(0, 300), await page.waitForTimeout(120)
+for (let i = 0; i < 10; i++) {
+  await page.mouse.wheel(0, 300)
+  await page.waitForTimeout(120)
+}
 await page.waitForTimeout(2500)
 const blank = await page.evaluate(async (b64) => {
   // pixels in the uncoloured-land shade (#2a2650): India with no district fill on top

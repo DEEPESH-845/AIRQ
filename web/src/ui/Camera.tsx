@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { shrink } from '../lib/account'
 import { useT } from '../lib/i18n'
 
+// insecure origins and old browsers have no mediaDevices at all
+const hasCamera = () => typeof navigator.mediaDevices?.getUserMedia === 'function'
+
 /** Live in-app camera (rear camera on phones). Falls back to the file picker when there is no camera or no permission.
  *  The code, when given, is shown over the viewfinder so the player writes it down and keeps it in frame. */
 export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, preview: string) => void }) {
   const video = useRef<HTMLVideoElement>(null)
-  const [state, setState] = useState<'starting' | 'live' | 'none'>('starting')
+  const [state, setState] = useState<'starting' | 'live' | 'none'>(() => (hasCamera() ? 'starting' : 'none'))
   const [flash, setFlash] = useState(false)
   const [err, setErr] = useState('')
   const t = useT()
@@ -14,10 +17,7 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
   useEffect(() => {
     let stream: MediaStream | null = null
     let live = true
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setState('none')
-      return
-    }
+    if (!hasCamera()) return
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
       .then((s) => {

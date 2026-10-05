@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { District, World } from '../lib/world'
 import type { Focus } from '../map/AirqMap'
 import { defaultDistrict, nearIndia, nearestDistrict, pickStory, poorPlus } from '../lib/story'
-import { SOURCES } from './Attribution'
+import { SOURCES } from '../lib/sources'
 import { useFeed } from '../lib/account'
 
 type Scene = { focus: Focus; trace: District | null }
@@ -19,7 +19,7 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
   const target = defaultDistrict(world)
   const feed = useFeed()
   const fieldDays = feed?.byAction.fieldwatch ?? 0
-  const actions = (feed?.total ?? 0) - fieldDays
+  const actions = (feed?.total ?? 0) - fieldDays - (feed?.byAction.pact ?? 0) - (feed?.byAction.pactweek ?? 0)
 
   useEffect(() => {
     if (step === 1) onScene(story.kind === 'fire' ? { focus: null, trace: story.d } : { focus: { to: story.d.c }, trace: null })

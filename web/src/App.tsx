@@ -8,7 +8,9 @@ import { MapKey } from './ui/MapKey'
 const HowItWorks = lazy(() => import('./ui/HowItWorks'))
 const Guide = lazy(() => import('./ui/Guide'))
 import type { ShowTarget } from './ui/Guide'
-import { Impact, type ImpactTab } from './ui/Impact'
+import type { ImpactTab } from './ui/Impact'
+// Earn, Shop, Team and Leaderboard (with translations, camera and share cards) load when first opened
+const Impact = lazy(() => import('./ui/Impact').then((m) => ({ default: m.Impact })))
 import type { Pick } from './ui/FireWatch'
 import { issueCert, sync, useAccount, useFeed } from './lib/account'
 const Certificate = lazy(() => import('./ui/Certificate'))
@@ -76,7 +78,10 @@ export default function App() {
 
 
   const selected = useMemo(() => world?.districts.find((d) => d.id === selectedId) ?? null, [world, selectedId])
-  const [tracing, setTracing] = useState(false)
+  // the trace belongs to one district: selecting another (any way, Back included) ends it without an effect
+  const [tracingId, setTracingId] = useState<string | null>(null)
+  const tracing = !!selectedId && tracingId === selectedId
+  const setTracing = (on: boolean) => setTracingId(on ? selectedId : null)
   const invited = new URLSearchParams(location.search).has('team')
   const [side, setSide] = useState<'readout' | 'rankings' | 'general' | 'impact'>(invited ? 'impact' : 'readout')
   const [impactTab, setImpactTab] = useState<ImpactTab>(invited ? 'team' : 'earn')
@@ -144,7 +149,6 @@ export default function App() {
     setSelectedId(id)
     if (intro) endIntro(false)
   }
-  useEffect(() => setTracing(false), [selectedId])
   const goMission = (id: MissionId) => {
     if (!world) return
     if (id === 'general') return openGeneral()
@@ -272,6 +276,7 @@ export default function App() {
       {side === 'rankings' && <Rankings world={world} onSelect={select} onClose={() => setSide('readout')} />}
       {side === 'general' && <GeneralChat selected={selected} onHighlight={setHighlight} onClose={() => { setSide('readout'); setHighlight([]) }} />}
       {side === 'impact' && (
+        <Suspense fallback={<aside className="rankings impact" aria-busy="true" />}>
         <Impact
           world={world}
           tab={impactTab}
@@ -284,6 +289,7 @@ export default function App() {
           onCert={openCert}
           invite={invite}
         />
+        </Suspense>
       )}
       {side === 'readout' && !intro && !picking && <NationalReadout world={world} onSelect={select} onRankings={() => setSide('rankings')} onImpact={() => openImpact('leaders')} />}
       </Boundary>
