@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import qrcode from 'qrcode-generator'
 import { actionLabel, verifyCert, type Cert } from '../lib/account'
+import type { World } from '../lib/world'
+import { ShareButton } from './ShareButton'
 
 const date = (s: number) => new Date(s * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
 
 /** A signed impact certificate. Opened from a link or QR (?cert=), it asks AIRQ's server whether the signature is genuine. */
-export default function Certificate({ token, onClose }: { token: string; onClose: () => void }) {
+export default function Certificate({ token, world, onClose }: { token: string; world: World; onClose: () => void }) {
   const [state, setState] = useState<{ valid: boolean; cert: Cert | null } | null>(null)
   const [copied, setCopied] = useState(false)
   const ref = useRef<HTMLElement>(null)
@@ -101,6 +103,22 @@ export default function Certificate({ token, onClose }: { token: string; onClose
         >
           {copied ? 'Link copied' : 'Copy verification link'}
         </button>
+        {c && state?.valid && (
+          <ShareButton
+            world={world}
+            text={`My clean-air record on AIRQ: ${c.actions} verified actions, ${c.earned} credits. Scan the code to check it.`}
+            card={() => ({
+              stat: String(c.actions + c.fieldDays),
+              label: c.fieldDays ? 'verified actions and fire-free days' : 'verified green actions',
+              proof: 'Signed certificate: scan to check',
+              name: c.name,
+              where: c.where,
+              district: world.districts.find((d) => `${d.n}, ${d.s}` === c.where)?.id ?? '', // names repeat across states
+              url,
+              qrCaption: 'Scan to verify',
+            })}
+          />
+        )}
         <button onClick={() => print()}>Print</button>
         <button className="primary" onClick={onClose}>
           Close

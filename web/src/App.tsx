@@ -340,7 +340,7 @@ export default function App() {
       {cert && (
         <Boundary>
           <Suspense fallback={null}>
-            <Certificate token={cert} onClose={closeCert} />
+            <Certificate token={cert} world={world} onClose={closeCert} />
           </Suspense>
         </Boundary>
       )}

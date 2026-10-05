@@ -42,7 +42,7 @@ export function AlertToggle({ district, name }: { district: string; name: string
         </svg>
         {state === 'on' || state === 'off' || state === 'busy' ? COPY[state] : COPY.off}
       </button>
-      {state === 'on' && <small>We'll push a warning up to a day before AQI in {name} crosses 300. Tap again to stop.</small>}
+      {state === 'on' && <small>We'll push a warning up to a day before AQI in {name} crosses 300, and when new farm fires flare up within 25 km. Tap again to stop.</small>}
       {(state === 'denied' || state === 'error' || state === 'unsupported') && <small className="warn">{COPY[state]}</small>}
     </div>
   )

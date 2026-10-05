@@ -57,7 +57,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
         <>
           <p>Pick a district by tapping it, searching at the top, or from <b>Rankings</b>. Its panel has three tabs:</p>
           <ol className="how-steps">
-            <li><b>Orders</b>: what to do today for children, runners, people with asthma or outdoor workers (CPCB guidance), the cleanest 2-hour window, the 48-hour forecast, and a raid alert you can switch on.</li>
+            <li><b>Orders</b>: what to do today for children, runners, people with asthma or outdoor workers (CPCB guidance), the cleanest 2-hour window, the 48-hour forecast, and alerts you can switch on: before smog arrives, and when new farm fires flare up within 25 km.</li>
             <li><b>Battle</b>: where the air comes from (fires, vehicles, dust, industry, household burning), a trace of the smoke's path, and a one-tap complaint to the authority that can act.</li>
             <li><b>Play</b>: the games below.</li>
           </ol>
@@ -142,7 +142,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
           </p>
           <ol className="how-steps">
             <li>Pin your field on the map and set its size. It must be in the crop-burning belt, and it stays fixed once registered.</li>
-            <li>Once a day, run the satellite check. No fire on your field (plus a 375 m margin, one satellite pixel) in the last 24 h: +{ECO.fieldWatch.credits} credits.</li>
+            <li>AIRQ checks your field automatically after every 4-hourly data refresh (or tap to check now). A day with no fire on your field (plus a 375 m margin, one satellite pixel): +{ECO.fieldWatch.credits} credits, once a day.</li>
             <li>A fire on the field pauses rewards for {ECO.fieldWatch.cooldownDays} days. Your fire-free days go on your impact certificate.</li>
           </ol>
           <p className="fine">Why it's hard to cheat: you can't fake a satellite pass, the field can't move, and fields outside the burning belt can't register.</p>

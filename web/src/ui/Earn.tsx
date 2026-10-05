@@ -4,6 +4,7 @@ import { catOf } from '../lib/naqi'
 import { ECO, actionLabel as label, deleteAccount, estimate, frontline, getChallenge, refreshFeed, streakIfActNow, submitProof, useAccount, type Me, type Receipt } from '../lib/account'
 import { Camera } from './Camera'
 import { FireWatch, type Pick } from './FireWatch'
+import { ShareButton } from './ShareButton'
 
 // what the server checks, shown while it works (the order it runs them in)
 const CHECKS = ['Photo decoded and re-encoded, location data removed', 'Fingerprint: never used before, not even a resized copy', 'Not a screen, print or AI image', 'One-time code read from the photo', 'Shows the action you picked']
@@ -106,6 +107,22 @@ export function Earn({ world, me, pick: fieldPick, onPickField, onShowField, onC
               {result.receipt.first ? ` + ${result.receipt.first} first-time` : ''} = <b>+{result.receipt.credits} credits</b>, +{result.receipt.xp} XP
               {result.receipt.shield ? '. Your Streak Shield saved the streak.' : ''}
             </p>
+          )}
+          {result.ok && (
+            <ShareButton
+              world={world}
+              text={`I just did something real for India's air: ${me.n} verified green action${me.n === 1 ? '' : 's'} on AIRQ.`}
+              card={() => ({
+                stat: String(me.n),
+                label: me.n === 1 ? 'verified green action' : 'verified green actions',
+                proof: 'Photo-verified by AI, with a one-time code',
+                name: me.name,
+                where: `${me.dn}, ${me.s}`,
+                district: me.d,
+                url: `${location.origin}/?d=${me.d}`,
+                qrCaption: 'Join me on AIRQ',
+              })}
+            />
           )}
         </div>
       )}

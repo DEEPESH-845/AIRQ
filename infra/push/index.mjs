@@ -3,7 +3,9 @@
 //  - SNS (arq-smog-raids): send a push to every browser watching the raided district
 import { createHash } from 'node:crypto'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, PutCommand, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, PutCommand, DeleteCommand, QueryCommand, ScanCommand, GetCommand } from '@aws-sdk/lib-dynamodb'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import { gunzipSync } from 'node:zlib'
 import webpush from 'web-push'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
@@ -82,4 +84,54 @@ async function raids(event) {
   return { sent }
 }
 
-export const handler = (event) => (event.Records?.[0]?.Sns ? raids(event) : http(event))
+// ---------- fire near you: after each world tick, new satellite fires close to districts people watch
+const s3 = new S3Client({})
+const FIRE_KM = 25 // within this distance of the district centre
+const FIRE_MIN = 3 // fewer new fires than this is noise, not news
+const FIRE_GAP_H = 12 // at most one fire alert per district per 12 h
+const NEW_H = 4.5 // the tick runs every 4 h: fires younger than this are new since the last one
+const km = (a, b) => Math.hypot((b[0] - a[0]) * 111.32 * Math.cos((a[1] * Math.PI) / 180), (b[1] - a[1]) * 110.57)
+
+export function newFiresNear(c, fires) {
+  return fires.filter(([lon, lat, , age]) => age <= NEW_H && km(c, [lon, lat]) <= FIRE_KM).length
+}
+
+async function fireAlerts() {
+  const raw = Buffer.from(await (await s3.send(new GetObjectCommand({ Bucket: process.env.BUCKET, Key: 'data/world.json' }))).Body.transformToByteArray())
+  const world = JSON.parse((raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw).toString())
+  const byId = new Map(world.districts.map((d) => [d.id, d]))
+  const subs = new Map()
+  let start
+  do {
+    const r = await db.send(new ScanCommand({ TableName: TABLE, ExclusiveStartKey: start }))
+    for (const it of r.Items ?? []) if (DISTRICT.test(it.d)) subs.set(it.d, [...(subs.get(it.d) ?? []), it])
+    start = r.LastEvaluatedKey
+  } while (start)
+  const now = Date.now()
+  let sent = 0
+  for (const [id, items] of subs) {
+    const d = byId.get(id)
+    if (!d) continue
+    const n = newFiresNear(d.c, world.fires)
+    if (n < FIRE_MIN) continue
+    const last = (await db.send(new GetCommand({ TableName: TABLE, Key: { d: 'meta#fire', e: id } }))).Item
+    if (last && now - last.at < FIRE_GAP_H * 3600e3) continue
+    await db.send(new PutCommand({ TableName: TABLE, Item: { d: 'meta#fire', e: id, at: now, ttl: Math.floor(now / 1000) + 2 * 86400 } }))
+    const payload = JSON.stringify({
+      title: `${n} new farm fires near ${d.n}`,
+      body: `NASA satellites saw ${n} fires within ${FIRE_KM} km in the last few hours. If the wind turns your way, smoke can arrive within a day.`,
+      url: `/?d=${id}`,
+    })
+    await Promise.all(
+      items.map((it) =>
+        webpush.sendNotification(it.sub, payload, { TTL: 6 * 3600 }).then(
+          () => sent++,
+          (err) => (err.statusCode === 404 || err.statusCode === 410 ? db.send(new DeleteCommand({ TableName: TABLE, Key: { d: it.d, e: it.e } })) : null),
+        ),
+      ),
+    )
+  }
+  return { districts: subs.size, sent }
+}
+
+export const handler = (event) => (event.job === 'fires' ? fireAlerts() : event.Records?.[0]?.Sns ? raids(event) : http(event))

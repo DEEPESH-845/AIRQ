@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { World } from '../lib/world'
 import { ECO, checkField, registerField, type FieldResult, type Me } from '../lib/account'
+import { ShareButton } from './ShareButton'
 
 export type Pick = { lon: number; lat: number }
 const FW = ECO.fieldWatch
@@ -86,6 +87,29 @@ export function FireWatch({ world, me, pick, onPick, onShow }: { world: World; m
               {res.status === 'done' && "Today's check is done. The satellites pass again tonight; check tomorrow."}
               {res.status === 'gap' && `No check for ${res.receipt?.hours} h, longer than the 60 h satellite record. Watch restarted today; check daily to keep earning.`}
             </p>
+          )}
+          {f.last_ts ? (
+            <p className="fine">
+              Satellites last checked your field {new Date(f.last_ts * 1000).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}. AIRQ
+              checks automatically after every data refresh; a fire-free day pays once a day.
+            </p>
+          ) : null}
+          {f.clean > 0 && (
+            <ShareButton
+              world={world}
+              label="Share my fire-free days"
+              text={`My field has stayed fire-free for ${f.clean} day${f.clean === 1 ? '' : 's'}, verified from space on AIRQ. No stubble burning here.`}
+              card={() => ({
+                stat: String(f.clean),
+                label: f.clean === 1 ? 'fire-free day on my field' : 'fire-free days on my field',
+                proof: 'Verified by NASA VIIRS satellites',
+                name: me.name,
+                where: `${f.acres} acres near ${f.dn}`,
+                district: f.d,
+                url: `${location.origin}/?d=${f.d}`,
+                qrCaption: 'Join me on AIRQ',
+              })}
+            />
           )}
           <div className="shot-actions">
             <button className="linkish" onClick={onShow}>

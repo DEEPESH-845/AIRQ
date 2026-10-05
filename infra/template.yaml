@@ -169,6 +169,8 @@ Resources:
           - CloudWatchLogsLogGroup: { LogGroupArn: !GetAtt TickLogs.Arn }
       Policies:
         - LambdaInvokePolicy: { FunctionName: !Ref TickFunction }
+        - LambdaInvokePolicy: { FunctionName: !Ref PlayerFunction }
+        - LambdaInvokePolicy: { FunctionName: !Ref PushFunction }
         - EventBridgePutEventsPolicy: { EventBusName: default }
         - CloudWatchLogsFullAccess
       Events:
@@ -180,8 +182,10 @@ Resources:
             RetryPolicy: { MaximumRetryAttempts: 1 }
       DefinitionSubstitutions:
         TickArn: !GetAtt TickFunction.Arn
+        PlayerArn: !GetAtt PlayerFunction.Arn
+        PushArn: !GetAtt PushFunction.Arn
       Definition:
-        Comment: Fetch feeds, rebuild the world, announce smog raids
+        Comment: Fetch feeds, rebuild the world, check Fire Watch fields, alert fires near watched districts, announce smog raids
         StartAt: BuildWorld
         States:
           BuildWorld:
@@ -195,6 +199,31 @@ Resources:
                 IntervalSeconds: 20
                 MaxAttempts: 2
                 BackoffRate: 2
+            Next: FireWatch
+          # both side jobs keep the tick's output ($.raids) and never fail the tick
+          FireWatch:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${PlayerArn}
+              Payload: { job: fieldwatch }
+            ResultPath: null
+            Catch:
+              - ErrorEquals: [States.ALL]
+                ResultPath: null
+                Next: FireAlerts
+            Next: FireAlerts
+          FireAlerts:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${PushArn}
+              Payload: { job: fires }
+            ResultPath: null
+            Catch:
+              - ErrorEquals: [States.ALL]
+                ResultPath: null
+                Next: AnyRaids
             Next: AnyRaids
           AnyRaids:
             Type: Choice
@@ -288,8 +317,10 @@ Resources:
           VAPID_SUBJECT: mailto:deepesh.mgn@gmail.com
           VAPID_PUBLIC: !Ref VapidPublicKey
           VAPID_PRIVATE: !Ref VapidPrivateKey
+          BUCKET: !Ref SiteBucket
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref Subscriptions }
+        - S3ReadPolicy: { BucketName: !Ref SiteBucket }
       Events:
         Subscribe:
           Type: HttpApi

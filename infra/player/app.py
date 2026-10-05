@@ -318,7 +318,7 @@ def overlaps(lon, lat, r, others):
 
 def make_field(lon, lat, acres, d, now):
     r = math.sqrt(acres * 4046.86 / math.pi)  # a circle of the field's area, in metres
-    return {'c': [round(lon, 5), round(lat, 5)], 'acres': acres, 'r': round(r), 'd': d['id'], 'dn': d['n'], 'at': int(now),
+    return {'c': [round(lon, 5), round(lat, 5)], 'acres': acres, 'r': round(r), 'd': d['id'], 'dn': d['n'], 's': d.get('s', ''), 'at': int(now),
             'last': '', 'last_ts': 0, 'clean': 0, 'burnt': []}
 
 
@@ -821,8 +821,44 @@ def field_scan(body):
     status, receipt = out
     if status == 'none':
         return reply(400, {'error': 'Register your field first.'})
+    if status == 'clean':
+        post_feed(p, 'fieldwatch', now)
     near = [f[:4] for f in fires if km(p['field']['c'], f[:2]) <= 25]  # context for the map: fires within 25 km
     return reply(200, {'status': status, 'receipt': receipt, 'nearby': near[:300], 'me': public(p)})
+
+
+def post_feed(p, action, now):
+    """A public line in the feed (callsign and district only), shown on the map glow and the ticker for 7 days."""
+    ts = datetime.fromtimestamp(now, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    where = p['field'] if action == 'fieldwatch' and p.get('field') else p  # a fire-free day glows where the field is
+    district = districts().get(where['d'], {})
+    aws('ddb').Table(PROOFS).put_item(Item={'pk': 'feed', 'sk': ts, 'pid': p['pid'], 'name': p['name'], 'title': p.get('title', ''), 'action': action,
+                                            'd': where['d'], 'dn': where['dn'], 's': district.get('s', p['s']), 'ttl': int(now) + 8 * 86400})
+
+
+def fieldwatch_job():
+    """Run after every world tick (Step Functions): check every registered field against the fresh VIIRS fires, so farmers
+    don't have to tap. field_check settles at most once per IST day, so the 4-hourly runs pay once a day."""
+    now, fires = time.time(), load_world()['fires']
+    t, kw, done = players_table(), {'FilterExpression': 'attribute_exists(#f) AND #f <> :null', 'ExpressionAttributeNames': {'#f': 'field'},
+                                    'ExpressionAttributeValues': {':null': None}}, {'clean': 0, 'fire': 0, 'other': 0}
+    while True:
+        r = t.scan(**kw)
+        for item in r['Items']:
+            for _ in range(3):  # optimistic lock: a player writing at the same moment just means a retry
+                p = get_player(item['pid'])
+                if not p or not p.get('field'):
+                    break
+                v = p['v']
+                status, _receipt = field_check(p, fires, now)
+                if status == 'done' or save(p, v):
+                    if status == 'clean':
+                        post_feed(p, 'fieldwatch', now)
+                    done[status if status in done else 'other'] += 1
+                    break
+        if 'LastEvaluatedKey' not in r:
+            return done
+        kw['ExclusiveStartKey'] = r['LastEvaluatedKey']
 
 
 CERT_SECRET = os.environ.get('CERT_SECRET', '')
@@ -922,6 +958,8 @@ def review_cli(pid, code, status):
 
 
 def handler(event, context=None):
+    if event.get('job') == 'fieldwatch':  # scheduled, from the world tick; not an HTTP request
+        return fieldwatch_job()
     try:
         method = event['requestContext']['http']['method']
         path = event.get('rawPath', '')

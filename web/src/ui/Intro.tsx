@@ -3,6 +3,7 @@ import type { District, World } from '../lib/world'
 import type { Focus } from '../map/AirqMap'
 import { defaultDistrict, nearIndia, nearestDistrict, pickStory, poorPlus } from '../lib/story'
 import { SOURCES } from './Attribution'
+import { useFeed } from '../lib/account'
 
 type Scene = { focus: Focus; trace: District | null }
 
@@ -16,6 +17,9 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
   const n = poorPlus(world.districts)
   const top = SOURCES.map((s) => ({ ...s, v: story.d.att[s.key] })).sort((a, b) => b.v - a.v)
   const target = defaultDistrict(world)
+  const feed = useFeed()
+  const fieldDays = feed?.byAction.fieldwatch ?? 0
+  const actions = (feed?.total ?? 0) - fieldDays
 
   useEffect(() => {
     if (step === 1) onScene(story.kind === 'fire' ? { focus: null, trace: story.d } : { focus: { to: story.d.c }, trace: null })
@@ -80,6 +84,23 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
       </div>
       <h2>{c.title}</h2>
       <p aria-live="polite">{c.body}</p>
+      {step === 0 && feed && feed.total > 0 && (
+        <p className="intro-impact">
+          This week, AIRQ players verified{' '}
+          {actions > 0 && (
+            <>
+              <b>{actions}</b> green action{actions === 1 ? '' : 's'}
+            </>
+          )}
+          {actions > 0 && fieldDays > 0 && ' and '}
+          {fieldDays > 0 && (
+            <>
+              <b>{fieldDays}</b> fire-free field day{fieldDays === 1 ? '' : 's'} from space
+            </>
+          )}
+          .
+        </p>
+      )}
       {step === 1 && story.kind === 'mix' && (
         <div className="att-bar" role="img" aria-label={top.map((r) => `${r.label} ${Math.round(r.v * 100)}%`).join(', ')}>
           {top.map((r) => (
