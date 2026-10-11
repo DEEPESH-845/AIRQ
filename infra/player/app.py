@@ -12,6 +12,8 @@ POST /api/field/check   {pid, token}                       -> today's NASA VIIRS
 POST /api/cert {pid, token} | GET /api/cert?t=              -> issue / verify a signed impact certificate
 POST /api/team {pid, token, create|join|leave} | GET ?code= -> teams (schools, RWAs, colleges, offices, village pacts)
 GET  /api/leaderboard?scope=week|all|district|states&pid=
+POST /api/demo          {key}                               -> a judge's sandbox player: pre-funded, hidden from public boards, deleted after 48 h
+POST /api/admin         {key, review?: {pid, code, status}} -> goodie claim queue with the claimant's proof photos; move a claim on
 
 Credits only come from things the server can verify (approved photos, server-side check-in), never from
 browser-reported game play. Game XP from the browser is accepted at most dailyGameXp per IST day.
@@ -171,13 +173,13 @@ def buy(p, item_id, now):
             return 'You can hold at most 2 of these.'
         p['inv'][item_id] = p['inv'].get(item_id, 0) + 1
     else:
-        if p['n'] < ECO['goodiesUnlock']:
+        if p['n'] < ECO['goodiesUnlock'] and not p.get('demo'):
             return f"Goodies unlock after {ECO['goodiesUnlock']} verified green actions."
         if any(c['item'] == item_id and c['status'] == 'review' for c in p['claims']):
             return 'You already have a claim for this goodie under review.'
         code = 'AIRQ-' + '-'.join(''.join(secrets.choice(CODE_CHARS) for _ in range(4)) for _ in range(2))
         # a person reviews every goodie claim (and its proofs) before a pilot partner fulfils it
-        p['claims'].append({'item': item_id, 'label': it['label'], 'code': code, 'at': int(now), 'status': 'review'})
+        p['claims'].append({'item': item_id, 'label': it['label'], 'cost': it['cost'], 'code': code, 'at': int(now), 'status': 'review'})
     p['cr'] -= it['cost']
     return None
 
@@ -190,13 +192,38 @@ def review_claim(p, code, status):
     if c['status'] in ('done', 'refunded'):
         return f"Claim is already {c['status']}."
     if status == 'refund':
-        p['cr'] += SHOP[c['item']]['cost']
+        p['cr'] += c.get('cost') or SHOP.get(c['item'], {}).get('cost', 0)
         c['status'] = 'refunded'
     elif status in ('ready', 'done'):
         c['status'] = status
     else:
         return 'Status must be ready, done or refund.'
     return None
+
+
+CLAIM_ORDER = {'review': 0, 'ready': 1, 'done': 2, 'refunded': 3}
+
+
+def claim_queue(players):
+    """Every goodie claim with its claimant, open ones first (review, then ready), oldest first within each."""
+    rows = [{**c, 'pid': p['pid'], 'name': p['name'], 'where': f"{p['dn']}, {p['s']}", 'demo': bool(p.get('demo')), 'n': p['n'], 'cr': p['cr']}
+            for p in players for c in p.get('claims', [])]
+    return sorted(rows, key=lambda r: (CLAIM_ORDER.get(r['status'], 9), r['at']))
+
+
+# ---- judges' sandbox: the demo link signs into a pre-funded player that the public never sees
+DEMO_CREDITS, DEMO_HOURS = 1000, 48
+
+
+def derived_key(secret, label, n):
+    """Demo and admin keys derive from the certificate secret: nothing extra to deploy or leak."""
+    return hmac.new(secret.encode(), label.encode(), hashlib.sha256).hexdigest()[:n] if secret else ''
+
+
+def make_demo(p, now):
+    """Credits to try the shop, goodies unlocked; hidden from boards and the feed; DynamoDB deletes it after DEMO_HOURS."""
+    p.update(demo=True, cr=p['cr'] + DEMO_CREDITS, ttl=int(now) + DEMO_HOURS * 3600)
+    return p
 
 
 def equip(p, item_id):
@@ -401,7 +428,8 @@ def cert_payload(p, now):
     f = p.get('field')
     return {'id': p['pid'][:8], 'name': p['name'], 'title': p.get('title', ''), 'where': f"{p['dn']}, {p['s']}", 'actions': p['n'],
             'life': p.get('life', {}), 'earned': p.get('earned', 0), 'xp': p['xp'] + p['eco'], 'streak': p['streak'],
-            'fieldDays': f['clean'] if f else 0, 'since': p['created'], 'iat': int(now), 'team': p.get('tn', '')}
+            'fieldDays': f['clean'] if f else 0, 'since': p['created'], 'iat': int(now), 'team': p.get('tn', ''),
+            **({'demo': True} if p.get('demo') else {})}
 
 
 def board(players, scope, me, now):
@@ -618,6 +646,8 @@ def authed(body):
     tok = str(body.get('token') or '')
     if not p or not hmac.compare_digest(p['th'], hashlib.sha256(tok.encode()).hexdigest()):
         return None
+    if p.get('ttl') and p['ttl'] < time.time():  # an expired demo player DynamoDB has not deleted yet
+        return None
     return p
 
 
@@ -667,15 +697,15 @@ def reply(code, body):
     return {'statusCode': code, 'headers': {'content-type': 'application/json', 'cache-control': 'no-store'}, 'body': json.dumps(body)}
 
 
-def ip_limited(event):
-    """At most 5 enlistments per IP per day (hashed, expires in 2 days)."""
+def ip_limited(event, kind='ip', limit=5):
+    """At most `limit` enlistments (or demo sign-ins) per IP per day (hashed, expires in 2 days)."""
     ip = event.get('requestContext', {}).get('http', {}).get('sourceIp', 'local')
     key = hashlib.sha256(f'{ip}:{ist_day(time.time())}'.encode()).hexdigest()[:32]
     r = aws('ddb').Table(PROOFS).update_item(
-        Key={'pk': f'ip#{key}', 'sk': '-'}, UpdateExpression='ADD n :one SET #t = if_not_exists(#t, :ttl)',
+        Key={'pk': f'{kind}#{key}', 'sk': '-'}, UpdateExpression='ADD n :one SET #t = if_not_exists(#t, :ttl)',
         ExpressionAttributeNames={'#t': 'ttl'}, ExpressionAttributeValues={':one': 1, ':ttl': int(time.time()) + 172800},
         ReturnValues='UPDATED_NEW')
-    return int(r['Attributes']['n']) > 5
+    return int(r['Attributes']['n']) > limit
 
 
 def enlist(event, body):
@@ -705,6 +735,66 @@ def enlist(event, body):
     sync(p, 0, time.time())  # first check-in
     save(p, 0)
     return reply(200, {'pid': pid, 'token': token, 'me': public(p), 'proofs': []})
+
+
+def demo(event, body):
+    if not DEMO_KEY or not hmac.compare_digest(str(body.get('key') or ''), DEMO_KEY):
+        return reply(401, {'error': 'That demo link is not valid.'})
+    if ip_limited(event, 'demo', 20):
+        return reply(429, {'error': 'Too many demo players from this network today. Try tomorrow.'})
+    ds = districts().values()
+    home = next((d for d in ds if d['n'] == 'Ludhiana'), None) or max(ds, key=lambda d: d['aqi'])  # stubble belt: Fire Watch works there
+    now, pid, token = time.time(), str(uuid.uuid4()), secrets.token_urlsafe(32)
+    name = 'Judge ' + ''.join(secrets.choice(CODE_CHARS) for _ in range(4))
+    p = make_demo(new_player(pid, hashlib.sha256(token.encode()).hexdigest(), name, home, now), now)
+    sync(p, 0, now)
+    save(p, 0)
+    return reply(200, {'pid': pid, 'token': token, 'me': public(p), 'proofs': []})
+
+
+def claimants():
+    """Players with at least one goodie claim (full scan, filtered). ponytail: fine for a pilot; a claims table past ~10k players."""
+    from boto3.dynamodb.conditions import Attr
+    t, items, kw = players_table(), [], {'FilterExpression': Attr('claims').size().gt(0)}
+    while True:
+        r = t.scan(**kw)
+        items += r['Items']
+        if 'LastEvaluatedKey' not in r:
+            return [plain(i) for i in items]
+        kw['ExclusiveStartKey'] = r['LastEvaluatedKey']
+
+
+def review(pid, code, status):
+    """Move one claim on (optimistic lock, retried). Returns an error string or None."""
+    for _ in range(4):
+        p = get_player(pid)
+        if not p:
+            return 'No such player.'
+        v = p['v']
+        err = review_claim(p, code, status)
+        if err or save(p, v):
+            return err
+    return 'Kept conflicting; try again.'
+
+
+def admin(body):
+    """The reviewer's desk: every claim, and for open ones the claimant's last proofs with 1-hour photo links."""
+    from boto3.dynamodb.conditions import Key
+    if not ADMIN_KEY or not hmac.compare_digest(str(body.get('key') or ''), ADMIN_KEY):
+        return reply(401, {'error': 'Wrong reviewer key.'})
+    r = body.get('review')
+    if isinstance(r, dict):
+        err = review(str(r.get('pid') or ''), str(r.get('code') or ''), str(r.get('status') or ''))
+        if err:
+            return reply(400, {'error': err})
+    queue = claim_queue(claimants())
+    proofs = {}
+    for pid in {c['pid'] for c in queue if c['status'] in ('review', 'ready')}:
+        items = aws('ddb').Table(PROOFS).query(KeyConditionExpression=Key('pk').eq(pid), ScanIndexForward=False, Limit=8)['Items']
+        proofs[pid] = [{'at': i['sk'], 'action': i['action'], 'ok': bool(i['ok']), 'reason': i.get('reason', ''), 'credits': plain(i.get('credits', 0)),
+                        'photo': aws('s3').generate_presigned_url('get_object', Params={'Bucket': PROOF_BUCKET, 'Key': i['key']}, ExpiresIn=3600)}
+                       for i in items]
+    return reply(200, {'claims': queue, 'proofs': proofs})
 
 
 def recent_proofs(pid):
@@ -860,8 +950,9 @@ def proof(body):
         reason = 'Verified, but a daily or weekly limit was reached before it could pay.'
     audit = secrets.randbelow(100) < 5  # ponytail: 5% of approvals flagged for human spot-check; review UI when volume needs it
     proofs.put_item(Item={'pk': p['pid'], 'sk': ts, 'action': action, 'ok': bool(receipt), 'reason': reason,
-                          'credits': receipt['credits'] if receipt else 0, 'key': key, 'phash': h, 'audit': bool(receipt) and audit})
-    if receipt:
+                          'credits': receipt['credits'] if receipt else 0, 'key': key, 'phash': h, 'audit': bool(receipt) and audit,
+                          **({'ttl': p['ttl']} if p.get('demo') else {})})
+    if receipt and not p.get('demo'):
         proofs.put_item(Item={'pk': 'feed', 'sk': ts, 'pid': p['pid'], 'name': p['name'], 'title': p.get('title', ''), 'action': action,
                               'd': p['d'], 'dn': p['dn'], 's': p['s'], 'ttl': int(now) + 8 * 86400})
     return reply(200, {'ok': bool(receipt), 'reason': reason, 'receipt': receipt, 'me': public(p), 'proofs': recent_proofs(p['pid'])})
@@ -893,7 +984,7 @@ def pact_layer(now):
     """Village pacts for the map: centre of members' fields and whether any saw a fire this week. Never per field or member."""
     groups = {}
     for p in all_players():
-        if p.get('tk') == 'village' and p.get('field'):
+        if p.get('tk') == 'village' and p.get('field') and not p.get('demo'):
             groups.setdefault(p['team'], {'name': p.get('tn', ''), 'fields': []})['fields'].append(p)
     out = []
     for code, g in groups.items():
@@ -933,7 +1024,8 @@ def field(body):
         return reply(401, {'error': 'Unknown player.'})
     if e:
         return reply(400, {'error': e})
-    remember_field(p['field'], p['pid'])
+    if not p.get('demo'):
+        remember_field(p['field'], p['pid'])
     return reply(200, {'me': public(p)})
 
 
@@ -983,6 +1075,8 @@ def field_scan(body):
 
 def post_feed(p, action, now):
     """A public line in the feed (callsign and district only), shown on the map glow and the ticker for 7 days."""
+    if p.get('demo'):
+        return
     ts = datetime.fromtimestamp(now, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
     where = p['field'] if action == 'fieldwatch' and p.get('field') else p  # a fire-free day glows where the field is
     district = districts().get(where['d'], {})
@@ -1070,6 +1164,7 @@ def fieldwatch_job():
 
 
 CERT_SECRET = os.environ.get('CERT_SECRET', '')
+DEMO_KEY, ADMIN_KEY = derived_key(CERT_SECRET, 'demo', 12), derived_key(CERT_SECRET, 'admin', 32)
 
 
 def cert(event, body):
@@ -1136,7 +1231,7 @@ def team(event, body):
             return reply(400, {'error': 'Pick what kind of team this is.'})
         for _ in range(5):  # a fresh 6-character invite code
             code = ''.join(secrets.choice(CODE_CHARS) for _ in range(6))
-            t = {'name': name, 'kind': kind, 'created': int(now), 'by': p['pid'][:8]}
+            t = {'name': name, 'kind': kind, 'created': int(now), 'by': p['pid'][:8], **({'ttl': p['ttl']} if p.get('demo') else {})}
             try:
                 aws('ddb').Table(PROOFS).put_item(Item={'pk': f'team#{code}', 'sk': '-', **t}, ConditionExpression='attribute_not_exists(pk)')
                 break
@@ -1150,6 +1245,8 @@ def team(event, body):
         t = team_item(code)
         if not t:
             return reply(400, {'error': 'No team with that code. Check it with whoever invited you.'})
+        if bool(t.get('ttl')) != bool(p.get('demo')):  # demo teams expire with their demo players: the two never mix
+            return reply(400, {'error': 'Demo accounts can only join demo teams.' if p.get('demo') else 'That is a demo team. Ask for a real invite code.'})
         if sum(1 for x in all_players() if x.get('team') == code) >= TEAM_MAX:
             return reply(400, {'error': f'This team is full ({TEAM_MAX} members).'})
         if pact_locked(t, now):
@@ -1193,7 +1290,7 @@ def forget(body):
 
 
 _board = {'at': 0.0, 'players': []}
-FIELDS = ['pid', 'name', 'title', 'd', 'dn', 's', 'xp', 'eco', 'wk', 'wxp', 'created', 'team', 'tn', 'tk', 'aw', 'field']
+FIELDS = ['pid', 'name', 'title', 'd', 'dn', 's', 'xp', 'eco', 'wk', 'wxp', 'created', 'team', 'tn', 'tk', 'aw', 'field', 'demo']
 
 
 def all_players():
@@ -1215,7 +1312,8 @@ def leaderboard(event):
     q = event.get('queryStringParameters') or {}
     scope = q.get('scope') if q.get('scope') in ('week', 'all', 'district', 'states', 'teams') else 'week'
     me = get_player(q.get('pid')) if q.get('pid') else None
-    players = [x for x in all_players() if not me or x['pid'] != me['pid']] + ([{k: me.get(k) for k in FIELDS}] if me else [])
+    # demo players stay off public boards (a demo player still sees their own row)
+    players = [x for x in all_players() if not x.get('demo') and (not me or x['pid'] != me['pid'])] + ([{k: me.get(k) for k in FIELDS}] if me else [])
     if scope == 'district' and not me:
         return reply(400, {'error': 'Enlist to see your district board.'})
     return reply(200, {'scope': scope, 'week': week_id(time.time()), **board(players, scope, me, time.time())})
@@ -1223,15 +1321,7 @@ def leaderboard(event):
 
 def review_cli(pid, code, status):
     """python3 app.py review <pid> <claim code> ready|done|refund   (run with AWS credentials and PLAYERS_TABLE set)"""
-    for _ in range(4):
-        p = get_player(pid)
-        if not p:
-            return 'No such player.'
-        v = p['v']
-        err = review_claim(p, code, status)
-        if err or save(p, v):
-            return err or f"{code}: {status}, {p['cr']} credits"
-    return 'Kept conflicting; try again.'
+    return review(pid, code, status) or f'{code}: {status}'
 
 
 def handler(event, context=None):
@@ -1259,7 +1349,8 @@ def handler(event, context=None):
         route = {'/api/player': lambda: enlist(event, body), '/api/player/sync': lambda: do_sync(body),
                  '/api/proof': lambda: proof(body), '/api/shop': lambda: shop(body), '/api/player/delete': lambda: forget(body),
                  '/api/proof/challenge': lambda: challenge(body), '/api/field': lambda: field(body), '/api/field/check': lambda: field_scan(body),
-                 '/api/cert': lambda: cert(event, body), '/api/team': lambda: team(event, body)}.get(path)
+                 '/api/cert': lambda: cert(event, body), '/api/team': lambda: team(event, body),
+                 '/api/demo': lambda: demo(event, body), '/api/admin': lambda: admin(body)}.get(path)
         return route() if route and method == 'POST' else reply(400, {'error': 'Not found.'})
     except json.JSONDecodeError:
         return reply(400, {'error': 'Send JSON.'})
@@ -1272,5 +1363,7 @@ if __name__ == '__main__':
     import sys
     if len(sys.argv) == 5 and sys.argv[1] == 'review':
         print(review_cli(*sys.argv[2:]))
+    elif len(sys.argv) == 3 and sys.argv[1] == 'keys':  # python3 app.py keys "$(cat .cert-secret)"
+        print(f"demo link: /?demo={derived_key(sys.argv[2], 'demo', 12)}\nreviewer key: {derived_key(sys.argv[2], 'admin', 32)}")
     else:
         print(review_cli.__doc__)

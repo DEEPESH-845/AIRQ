@@ -27,7 +27,7 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
           video.current.srcObject = s
           void video.current.play().catch(() => {})
         }
-        setState('live')
+        // the shutter goes live on the first frame (onPlaying): until then the video has no size and a tap would do nothing
       })
       .catch(() => live && setState('none'))
     return () => {
@@ -44,17 +44,21 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
     c.height = v.videoHeight
     c.getContext('2d')!.drawImage(v, 0, 0)
     const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.92))
-    if (!blob) return
+    if (!blob) return setErr(t('cam.retry'))
     setFlash(true)
     setTimeout(() => setFlash(false), 180)
-    onShot(await shrink(blob), URL.createObjectURL(blob))
+    try {
+      onShot(await shrink(blob), URL.createObjectURL(blob))
+    } catch {
+      setErr(t('cam.retry'))
+    }
   }
 
   return (
     <div className="camera">
       {state !== 'none' ? (
         <>
-          <video ref={video} playsInline muted aria-label="Camera viewfinder" />
+          <video ref={video} playsInline muted aria-label="Camera viewfinder" onPlaying={() => setState('live')} />
           {code && (
             <div className="cam-code" aria-hidden="true">
               <small>{t('cam.write')}</small>
@@ -63,6 +67,11 @@ export function Camera({ code, onShot }: { code?: string; onShot: (b64: string, 
           )}
           <span className="cam-corners" aria-hidden="true" />
           {flash && <span className="cam-flash" aria-hidden="true" />}
+          {err && (
+            <p className="cam-err" role="alert">
+              {err}
+            </p>
+          )}
           <button className="shutter" onClick={shoot} disabled={state !== 'live'} aria-label="Take photo">
             <i />
           </button>

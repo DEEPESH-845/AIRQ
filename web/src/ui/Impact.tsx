@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { District, World } from '../lib/world'
 import { enlist, useAccount } from '../lib/account'
+import { useNow } from '../lib/now'
 import { nearIndia, nearestDistrict } from '../lib/story'
 import { Earn } from './Earn'
 import { Shop } from './Shop'
@@ -19,6 +20,7 @@ const TABS: { id: ImpactTab; label: string }[] = [
 /** Real-world green actions, credits, the shop and the player leaderboard. */
 export function Impact({ world, tab, onTab, home, onClose, pick, onPickField, onShowField, onCert, invite }: { world: World; tab: ImpactTab; onTab: (t: ImpactTab) => void; home: District; onClose: () => void; pick: Pick | null; onPickField: () => void; onShowField: () => void; onCert: () => void; invite: string | null }) {
   const { me, status } = useAccount()
+  const now = useNow(60000)
   return (
     <aside className="rankings impact" aria-label="Impact">
       <header className="panel-head">
@@ -38,6 +40,12 @@ export function Impact({ world, tab, onTab, home, onClose, pick, onPickField, on
           </svg>
         </button>
       </header>
+      {me?.demo && (
+        <p className="demo-bar" role="note">
+          <b>Demo account</b> Pre-funded to try the shop, hidden from public boards and the feed
+          {me.ttl ? `, deleted in about ${Math.max(1, Math.round((me.ttl * 1000 - now) / 3600e3))} h` : ''}. Photo proofs still go through the real checks.
+        </p>
+      )}
       <div className="seg" role="tablist" aria-label="Impact sections">
         {TABS.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} aria-checked={tab === t.id} onClick={() => onTab(t.id)}>

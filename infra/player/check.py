@@ -1,6 +1,6 @@
 """Self-check for the player economy. Run: python3 infra/player/check.py"""
 from datetime import datetime, timezone
-from app import (ECO, award, ist_day, settle_due, pact_locked, active_events, event_mult, settle_pact, pact_week, burnt_this_week, week_days, clean_team_name, join_team, leave_team, team_view, review_claim, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
+from app import (ECO, award, ist_day, settle_due, pact_locked, active_events, event_mult, settle_pact, pact_week, burnt_this_week, week_days, clean_team_name, join_team, leave_team, team_view, review_claim, claim_queue, make_demo, derived_key, new_challenge, challenge_error, code_matches, normalise, near_duplicate, low_information,
                  hamming, field_error, make_field, overlaps, fires_on_field, field_check, sign_cert, read_cert, cert_payload, band, board, buy, can_submit, clean_name, equip, home_movable, new_player, prev_week, roll, sync, week_id)
 
 at = lambda iso: datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp()
@@ -242,4 +242,16 @@ assert pact_locked(old, mon) and pact_locked(old, tue)
 assert not pact_locked(dict(old, settled='2026-W40'), tue)
 assert not pact_locked(dict(old, kind='school'), mon), 'only village pacts lock'
 assert not pact_locked({'kind': 'village', 'created': int(mon)}, mon), 'a brand-new pact has no week to settle'
+
+# judges' sandbox: funded, goodies unlocked without real proofs, expires; refunds use the price paid
+j = make_demo(new_player('j', 'h', 'Judge ABCD', D, t0), t0)
+assert j['demo'] and j['cr'] == 1000 and j['ttl'] == int(t0) + 48 * 3600 and j['n'] == 0
+assert buy(j, 'g-tote', t0) is None and j['claims'][0]['cost'] == 80 and j['cr'] == 920
+assert review_claim(j, j['claims'][0]['code'], 'refund') is None and j['cr'] == 1000
+assert cert_payload(j, t0)['demo'] and 'demo' not in cert_payload(b, t0)
+assert derived_key('s', 'demo', 12) != derived_key('s', 'admin', 12) and len(derived_key('s', 'admin', 32)) == 32 and derived_key('', 'demo', 12) == ''
+# reviewer queue: open claims first, oldest first
+q1 = {'pid': 'x', 'name': 'X', 'dn': 'A', 's': 'B', 'n': 3, 'cr': 0, 'claims': [{'code': 'c1', 'status': 'done', 'at': 1}, {'code': 'c2', 'status': 'review', 'at': 9}]}
+q2 = {'pid': 'y', 'name': 'Y', 'dn': 'A', 's': 'B', 'n': 3, 'cr': 0, 'demo': True, 'claims': [{'code': 'c3', 'status': 'review', 'at': 5}, {'code': 'c4', 'status': 'ready', 'at': 2}]}
+assert [c['code'] for c in claim_queue([q1, q2])] == ['c3', 'c2', 'c4', 'c1'] and claim_queue([q2])[0]['demo']
 print('ok')

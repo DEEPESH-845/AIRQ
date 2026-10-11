@@ -10,7 +10,7 @@ export type Action = (typeof economy.actions)[number]
 export type Item = (typeof economy.shop)[number]
 export type Receipt = { base: number; frontline: number; streak: number; weeks: number; boost: number; event?: number; mult: number; first: number; credits: number; xp: number; shield: boolean }
 export type Proof = { sk: string; action: string; ok: boolean; reason: string; credits: number }
-export type Claim = { item: string; label: string; code: string; at: number; status: 'review' | 'ready' | 'done' | 'refunded' }
+export type Claim = { item: string; label: string; cost?: number; code: string; at: number; status: 'review' | 'ready' | 'done' | 'refunded' }
 export type Me = {
   pid: string; name: string; d: string; dn: string; s: string; title: string; titles: string[]
   xp: number; eco: number; cr: number; wk: string; wxp: number; pt: number
@@ -18,6 +18,8 @@ export type Me = {
   streak: number; swk: string; firsts: string[]; n: number; claims: Claim[]; dset: number
   life?: Record<string, number>; earned?: number; field?: Field | null
   team?: string; tn?: string; tk?: string
+  /** a judge's sandbox player: pre-funded, hidden from public boards, deleted at ttl (unix seconds) */
+  demo?: boolean; ttl?: number
 }
 export type Pact = { streak: number; weeks: { wk: string; result: 'clean' | 'forgiven' | 'fire' | 'small'; fields: number }[]; strikeLeft: boolean; fields: number; firedThisWeek: boolean; minFields: number; bonus: number }
 export type TeamView = { code: string; name: string; kind: string; kindLabel: string; members: number; wxp: number; verified: number; goal: number; rows: Row[]; pact: Pact | null }
@@ -27,7 +29,7 @@ export type FieldResult = { status: 'clean' | 'fire' | 'cooldown' | 'done' | 'ga
 export type FeedItem = { name: string; title: string; action: string; d: string; dn: string; s: string; at: string }
 export type PactPin = { name: string; c: [number, number]; fields: number; fire: boolean }
 export type Feed = { recent: FeedItem[]; byDistrict: Record<string, number>; byAction: Record<string, number>; total: number; pacts?: PactPin[] }
-export type Cert = { id: string; name: string; title: string; team?: string; where: string; actions: number; life: Record<string, number>; earned: number; xp: number; streak: number; fieldDays: number; since: number; iat: number }
+export type Cert = { demo?: boolean; id: string; name: string; title: string; team?: string; where: string; actions: number; life: Record<string, number>; earned: number; xp: number; streak: number; fieldDays: number; since: number; iat: number }
 export type Row = { rank: number; name: string; title?: string; where?: string; players?: number; kind?: string; score: number; me?: boolean }
 export type Board = { scope: string; week: string; rows: Row[]; me: Row | null }
 
@@ -70,7 +72,7 @@ export async function shrink(file: Blob): Promise<string> {
 }
 
 // ---------- store
-type Creds = { pid: string; token: string }
+type Creds = { pid: string; token: string; demo?: boolean }
 type State = { me: Me | null; proofs: Proof[]; status: 'guest' | 'loading' | 'ready' | 'offline' }
 const KEY = 'airq.account'
 let creds: Creds | null = null
@@ -121,19 +123,46 @@ const authed = <T>(path: string, body: object = {}) => {
   )
 }
 
-export async function enlist(name: string, d: string) {
-  if (creds) return authed('/api/player', { name, d })
-  const r = await call<Creds & { me: Me; proofs: Proof[] }>('/api/player', { name, d })
-  creds = { pid: r.pid, token: r.token }
+function signIn(r: Creds & { me: Me; proofs: Proof[] }) {
+  creds = { pid: r.pid, token: r.token, ...(r.me.demo ? { demo: true } : {}) }
   try {
     localStorage.setItem(KEY, JSON.stringify(creds))
   } catch {
     /* storage blocked: the account lasts for this visit */
   }
   set({ me: r.me, proofs: r.proofs, status: 'ready' })
+}
+
+export async function enlist(name: string, d: string) {
+  if (creds) return authed('/api/player', { name, d })
+  const r = await call<Creds & { me: Me; proofs: Proof[] }>('/api/player', { name, d })
+  signIn(r)
   void sync(getPlayer().xp) // XP earned before enlisting counts (within today's cap)
   return r
 }
+
+/** A judge's demo link (?demo=KEY): signs into a fresh pre-funded sandbox player. Keeps a real account if one is signed in. */
+let demoing: Promise<void> | null = null // one sign-in per page load, however often it is asked for
+export function demoSignIn(key: string) {
+  demoing ??= (async () => {
+    if (creds && !creds.demo) throw new Error('You are signed in with your own account, so the demo link was not used.')
+    const was = state.status
+    set({ status: 'loading' })
+    try {
+      signIn(await call<Creds & { me: Me; proofs: Proof[] }>('/api/demo', { key }))
+    } catch (e) {
+      set({ status: was })
+      throw e
+    }
+  })()
+  return demoing
+}
+
+// ---------- the reviewer's desk (?admin): goodie claims and the claimant's proofs
+export type QueuedClaim = Claim & { pid: string; name: string; where: string; demo: boolean; n: number; cr: number }
+export type ReviewProof = { at: string; action: string; ok: boolean; reason: string; credits: number; photo: string }
+export type Desk = { claims: QueuedClaim[]; proofs: Record<string, ReviewProof[]> }
+export const fetchDesk = (key: string, review?: { pid: string; code: string; status: 'ready' | 'done' | 'refund' }) => call<Desk>('/api/admin', { key, review })
 
 /** Daily check-in plus game XP. Returns credits paid for the check-in (0 if already done today). */
 export async function sync(xp: number) {

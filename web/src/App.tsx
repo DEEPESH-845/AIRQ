@@ -12,7 +12,7 @@ import type { ImpactTab } from './ui/Impact'
 // Earn, Shop, Team and Leaderboard (with translations, camera and share cards) load when first opened
 const Impact = lazy(() => import('./ui/Impact').then((m) => ({ default: m.Impact })))
 import type { Pick } from './ui/FireWatch'
-import { issueCert, sync, useAccount, useFeed } from './lib/account'
+import { demoSignIn, issueCert, sync, useAccount, useFeed } from './lib/account'
 const Certificate = lazy(() => import('./ui/Certificate'))
 import { TopBar } from './ui/TopBar'
 import { NationalReadout } from './ui/NationalReadout'
@@ -83,8 +83,18 @@ export default function App() {
   const tracing = !!selectedId && tracingId === selectedId
   const setTracing = (on: boolean) => setTracingId(on ? selectedId : null)
   const invited = new URLSearchParams(location.search).has('team')
-  const [side, setSide] = useState<'readout' | 'rankings' | 'general' | 'impact'>(invited ? 'impact' : 'readout')
-  const [impactTab, setImpactTab] = useState<ImpactTab>(invited ? 'team' : 'earn')
+  // ?demo=KEY (the judges' link) signs into a pre-funded sandbox player and opens the shop
+  const [demoKey] = useState(() => new URLSearchParams(location.search).get('demo'))
+  const [side, setSide] = useState<'readout' | 'rankings' | 'general' | 'impact'>(invited || demoKey ? 'impact' : 'readout')
+  const [impactTab, setImpactTab] = useState<ImpactTab>(invited ? 'team' : demoKey ? 'shop' : 'earn')
+  const [notice, setNotice] = useState('')
+  useEffect(() => {
+    if (!demoKey) return
+    const u = new URL(location.href)
+    u.searchParams.delete('demo') // the key isn't left in the address bar, history or a shared link
+    history.replaceState(history.state, '', u)
+    demoSignIn(demoKey).catch((e: Error) => setNotice(e.message))
+  }, [demoKey])
   const [guide, setGuide] = useState(false)
   const [picking, setPicking] = useState(false)
   const [fieldPick, setFieldPick] = useState<Pick | null>(null)
@@ -126,7 +136,7 @@ export default function App() {
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
   }, [how, cert, picking, guide, tracing, side, selectedId]) // eslint-disable-line react-hooks/exhaustive-deps -- closeDistrict only reads history
-  const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search) && !/[?&](cert|team)=/.test(location.search))
+  const [intro, setIntro] = useState(() => shouldShowIntro(getPlayer(), location.search) && !/[?&](cert|team|demo)=/.test(location.search))
   const [focus, setFocus] = useState<Focus>(null)
   const [introTrace, setIntroTrace] = useState<District | null>(null)
   // stable, so Intro's scene effect runs only when its step changes
@@ -361,6 +371,12 @@ export default function App() {
             Smoke path into <b>{selected.n}</b> over the last 36 hours
           </span>
           <button onClick={() => setTracing(false)}>Done</button>
+        </div>
+      )}
+      {notice && (
+        <div className="toast" role="alert">
+          <p>{notice}</p>
+          <button onClick={() => setNotice('')}>Got it</button>
         </div>
       )}
       {results.length > 0 && (

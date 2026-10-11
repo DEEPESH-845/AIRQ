@@ -379,6 +379,7 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions: [{ AttributeName: pid, AttributeType: S }]
       KeySchema: [{ AttributeName: pid, KeyType: HASH }]
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true } # judges' demo players only; real players have no ttl
 
   Proofs:
     Type: AWS::DynamoDB::Table
@@ -455,6 +456,8 @@ Resources:
         CertVerify: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/cert, Method: GET } }
         TeamPost: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/team, Method: POST } }
         TeamGet: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/team, Method: GET } }
+        Demo: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/demo, Method: POST } }
+        Admin: { Type: HttpApi, Properties: { ApiId: !Ref PushApi, Path: /api/admin, Method: POST } }
 
   # ---------------------------------------------------------------- cost guardrail
   Budget:

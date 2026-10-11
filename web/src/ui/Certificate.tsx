@@ -39,6 +39,7 @@ export default function Certificate({ token, world, onClose }: { token: string; 
           <p className="cert-bad">This certificate could not be verified. It may have been altered.</p>
         ) : (
           <>
+            {c.demo && <p className="cert-bad">Demo certificate from a judge's sandbox account. It is not a record of real actions.</p>}
             <p className="cert-to">This certifies that</p>
             <h2>
               {c.name}

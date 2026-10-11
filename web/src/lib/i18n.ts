@@ -48,6 +48,7 @@ const EN = {
   'earn.share': 'Share card',
   'cam.write': 'Write on paper, keep in frame',
   'cam.none': 'No camera access. Take or choose a photo',
+  'cam.retry': "Couldn't take that photo. Try again.",
   'fw.title': 'Satellite Fire Watch',
   'fw.nophoto': 'no photo',
   'fw.intro':
@@ -179,6 +180,7 @@ const HI: Record<Key, string> = {
   'earn.share': 'शेयर कार्ड',
   'cam.write': 'काग़ज़ पर लिखें, फ़्रेम में रखें',
   'cam.none': 'कैमरे की अनुमति नहीं। फ़ोटो लें या चुनें',
+  'cam.retry': 'फ़ोटो नहीं खिंच पाई। फिर से कोशिश करें।',
   'fw.title': 'सैटेलाइट फ़ायर वॉच',
   'fw.nophoto': 'फ़ोटो नहीं',
   'fw.intro':
@@ -308,6 +310,7 @@ const PA: Record<Key, string> = {
   'earn.share': 'ਸ਼ੇਅਰ ਕਾਰਡ',
   'cam.write': 'ਕਾਗ਼ਜ਼ ’ਤੇ ਲਿਖੋ, ਫ਼੍ਰੇਮ ਵਿੱਚ ਰੱਖੋ',
   'cam.none': 'ਕੈਮਰੇ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ। ਫ਼ੋਟੋ ਖਿੱਚੋ ਜਾਂ ਚੁਣੋ',
+  'cam.retry': 'ਫ਼ੋਟੋ ਨਹੀਂ ਖਿੱਚੀ ਜਾ ਸਕੀ। ਫਿਰ ਕੋਸ਼ਿਸ਼ ਕਰੋ।',
   'fw.title': 'ਸੈਟੇਲਾਈਟ ਫ਼ਾਇਰ ਵਾਚ',
   'fw.nophoto': 'ਫ਼ੋਟੋ ਨਹੀਂ',
   'fw.intro':
