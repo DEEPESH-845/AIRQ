@@ -23,24 +23,62 @@ The project includes a React web application, a Python data pipeline, and an AWS
 
 > **Important:** AIRQ's source attribution, trajectory, and pollution-share values are model estimates intended for public education and situational awareness. They are not a substitute for official measurements, regulatory decisions, medical advice, or emergency services.
 
+## Built on AWS
+
+**AIRQ runs entirely on AWS serverless.** It has no servers to patch and no containers to run. One command (`infra/deploy.sh`) uses the **AWS SAM CLI** to stand up the whole stack. The stack wakes every 4 hours to rebuild India's air map, and costs stay under a **$15/month AWS Budget**.
+
+**11 services from the AWS developer list are used in production**, plus Amazon Bedrock and AWS X-Ray:
+
+| Category | AWS service | What it does in AIRQ |
+| --- | --- | --- |
+| Agents and AI | **Strands Agents SDK** | Powers **AIRQ AI** (`infra/general/`). A Strands agent with tools answers "is it safe to go out?" from live district data. |
+| Agents and AI | **Amazon Bedrock** (Nova Micro, Nova Lite) | Nova Micro is the agent's model. Nova Lite reads photos sent as proof of real-world clean-air actions and checks a handwritten one-time code to stop fraud. |
+| Serverless (build) | **AWS SAM CLI** | `infra/template.yaml` defines everything. `sam deploy` creates or updates stack `arq` in one step. |
+| Serverless (ship) | **AWS Lambda** | 4 functions, all on **arm64 (Graviton)** with X-Ray tracing: `WorldTick` (Python data pipeline), `arq-push` (Node.js web push), `General` (Strands agent), `Player` (game, proofs, shop, certificates). |
+| Serverless (ship) | **Amazon API Gateway** | One HTTP API with **19 routes** under `/api/*`, rate-limited (burst 20, 10 req/s). |
+| Serverless (ship) | **AWS Step Functions** | The `arq-worldtick` state machine: `BuildWorld` → `FireWatch` → `FireAlerts` → `AnyRaids?` → `AnnounceRaids` (a Map state). It retries the feed build and contains failures in the alert steps. |
+| Servers and runtimes | **Firecracker** (indirect) | AIRQ doesn't run Firecracker itself. Lambda runs each function in its own Firecracker microVM. |
+| Data | **Amazon S3** | 2 buckets: the site bucket (web app, live `world.json`, and a 4-hourly archive that powers Instant Replay) and a private bucket for proof photos. |
+| Data | **Amazon DynamoDB** | 4 on-demand tables with TTL: push subscriptions, AI quota, players, proofs (including a perceptual-hash list that flags duplicate photos). |
+| Plumbing | **Amazon CloudFront** | One HTTPS domain for both the site and the API. It uses Origin Access Control, HTTP/2 and HTTP/3, and compression. `/api/*` goes to API Gateway. |
+| Plumbing | **Amazon EventBridge** | **EventBridge Scheduler** runs the world tick every 4 h. An **EventBridge rule** routes each `SmogRaid` event from Step Functions to SNS. |
+| Plumbing | **Amazon SNS** | `arq-smog-raids` sends each smog alert to the push Lambda, which notifies subscribed browsers in that district. |
+| Plumbing | **Amazon CloudWatch** | Logs for every Lambda and for the state machine's executions, plus X-Ray traces across Step Functions and Lambda. |
+
+Other AWS used: **AWS Budgets** (alerts at 80% actual and 100% forecast) and **IAM** (a least-privilege deployer policy in `infra/deployer-policy.json`, limited to `arq-*` roles).
+
+**Not used yet:**
+- **Amazon SageMaker AI** is next. It will correct model estimates against ground monitors (OpenAQ).
+- **Cognito** is not needed yet. Players are anonymous: a random ID and token, with no accounts or emails.
+- **SQS** is not needed yet. SNS → Lambda handles the alert volume.
+- **OpenSearch, RDS and Aurora** are not needed. Key-value access in DynamoDB is enough.
+- **Route 53** is not used. The app runs on the CloudFront domain.
+- **Containers and servers** (EKS, ECS, Fargate, EC2, Lightsail, App Runner, Amplify Hosting) are not needed. Everything is serverless.
+
 ## Architecture
 
 ```text
-Open-Meteo Air Quality / Forecast ─┐
-NASA FIRMS active fires ────────────┼─> pipeline/tick.py
-GeoJSON districts and power plants ┘          │
-                                             ▼
-                                      world.json + archive
-                                             │
-                         ┌───────────────────┴───────────────────┐
-                         ▼                                       ▼
-                   React + Vite web app                    AWS alert workflows
-                   S3 + CloudFront                         EventBridge + SNS
+                    EventBridge Scheduler (every 4 h)
+                                 │
+                                 ▼
+        Step Functions  arq-worldtick
+        ┌─────────────────────────────────────────────────────────────┐
+        │ BuildWorld (Lambda) ─> FireWatch ─> FireAlerts ─> AnyRaids? │
+        │   Open-Meteo / CAMS, NASA FIRMS, GeoJSON          │         │
+        │   └─> S3: world.json + archive                    ▼         │
+        │                              AnnounceRaids ─> EventBridge   │
+        └──────────────────────────────────────────────────────┬──────┘
+                                                               ▼
+                                         SNS arq-smog-raids ─> Lambda arq-push ─> browsers
 
-Web app / API ─> API Gateway HTTP API ─> Lambda functions
-                                      ├─ Web push subscriptions
-                                      ├─ AI guidance via Bedrock
-                                      └─ Player, proof, shop, and leaderboard APIs
+Browser ─> CloudFront ─┬─> S3 (React app, world.json, archive)
+                       └─> /api/* ─> API Gateway HTTP API ─> Lambda
+                                            ├─ arq-push  ─> DynamoDB (subscriptions)
+                                            ├─ General   ─> Strands Agents ─> Bedrock Nova Micro
+                                            └─ Player    ─> DynamoDB (players, proofs), S3 (photos),
+                                                            Bedrock Nova Lite (photo checks)
+
+Everything is defined in infra/template.yaml (AWS SAM) and observed in CloudWatch and X-Ray.
 ```
 
 ### Main components
