@@ -1,6 +1,10 @@
 // Briefing behaviour checks. Usage: node scripts/intro.mjs  (dev server on BASE or :5173)
 import { chromium } from 'playwright'
 const base = process.env.BASE ?? 'http://localhost:5173'
+const openMore = async (label, p = page) => {
+  await p.click('.more-btn')
+  await p.click(`.more-menu button:has-text("${label}")`)
+}
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
 const fail = (m) => {
   console.error('FAIL:', m)
@@ -41,7 +45,7 @@ await page.close()
 page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 const did = await (await fetch(base + '/data/world.json')).json().then((w) => w.districts[0].id)
 await page.goto(`${base}/?d=${did}`, { waitUntil: 'networkidle' })
-await page.click('.help-btn')
+await openMore('Field Manual')
 await page.waitForSelector('.how')
 await page.keyboard.press('Escape')
 await page.waitForTimeout(400)
@@ -52,7 +56,7 @@ await page.close()
 // mobile: the sheet's close icon keeps its size (the diagram's min-width must not leak onto it)
 page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
 await page.goto(`${base}/?d=${did}`, { waitUntil: 'networkidle' })
-await page.click('.help-btn')
+await openMore('Field Manual')
 await page.waitForSelector('.how')
 const iw = await page.$eval('.how .icon-btn svg', (e) => e.getBoundingClientRect().width)
 if (iw > 24) fail(`close icon is ${Math.round(iw)} px wide on mobile`)

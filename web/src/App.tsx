@@ -20,7 +20,8 @@ import { DistrictPanel } from './ui/DistrictPanel'
 import { Rankings } from './ui/Rankings'
 import { GeneralChat } from './ui/GeneralChat'
 import { Boundary } from './ui/Boundary'
-import { settle, bandName, type Result } from './lib/game'
+import { settleDaily, type Result } from './lib/daily'
+import { ResultToast } from './ui/CallCard'
 import { Hud } from './ui/Hud'
 import { MISSIONS, act, addPoints, checkIn, completeMission, getPlayer, markIntroSeen, shouldShowIntro, usePlayer, type MissionId, type Tab } from './lib/player'
 import { defaultDistrict, nearestDistrict } from './lib/story'
@@ -35,10 +36,16 @@ export default function App() {
   useEffect(() => {
     loadWorld().then((w) => {
       setWorld(w)
-      setSelectedId((cur) => (cur && w.districts.some((d) => d.id === cur) ? cur : null)) // drop a stale ?d=
-      const r = settle(w.districts, w.generatedAt)
-      setResults(r) // the results toast shows the XP; award in the same step so a closed tab can't lose it
-      act((p) => addPoints(p, r.reduce((a, x) => a + x.points, 0), 'Forecast Duel results'))
+      let home: string | null = null
+      try { home = localStorage.getItem('airq.home') } catch { /* no storage */ }
+      const valid = (id: string | null) => !!id && w.districts.some((d) => d.id === id)
+      // a deep link wins (a stale ?d= is dropped); otherwise a returning player lands on their own district
+      // invite, certificate and demo links open their own sheet: don't put the home district on top of it
+      const own = /[?&](cert|team|demo)=/.test(location.search)
+      setSelectedId((cur) => (valid(cur) ? cur : getPlayer().introSeen && !own && valid(home) ? home : null))
+      const r = settleDaily(w)
+      setResults(r) // award in the same step so a closed tab can't lose it
+      act((p) => addPoints(p, r.reduce((a, x) => a + (x.expired ? 0 : x.points), 0), 'Daily call'))
     }, (e) => setError(String(e.message ?? e)))
   }, [])
 
@@ -74,6 +81,7 @@ export default function App() {
 
   useEffect(() => {
     if (selectedId) act((p) => completeMission(p, 'command'))
+    if (selectedId) try { localStorage.setItem('airq.home', selectedId) } catch { /* no storage */ }
   }, [selectedId])
 
 
@@ -118,13 +126,14 @@ export default function App() {
   const [focusKey, setFocusKey] = useState(0)
   const [how, setHow] = useState(false)
   const [spot, setSpot] = useState<MissionId | null>(null)
-  const [keyOpen, setKeyOpen] = useState(() => innerWidth >= 760)
+  const [keyOpen, setKeyOpen] = useState(() => innerWidth >= 1180)
   // Escape closes the top-most layer only: the sheet, else a running trace, else the district.
   // Never while typing (inputs use Escape to clear themselves). One handler: a second listener
   // in the sheet would be detached by the re-render before it ran.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (document.querySelector('details.more[open]')) return // the More menu closes itself first
       if (how) setHow(false)
       else if (cert) closeCert()
       else if (picking) cancelPick()
@@ -151,7 +160,7 @@ export default function App() {
     setFocus(home ? { to: 'india' } : null)
     act(markIntroSeen)
     // give keyboard focus somewhere sensible when the card disappears
-    if (home) requestAnimationFrame(() => document.querySelector<HTMLElement>('.help-btn')?.focus())
+    if (home) requestAnimationFrame(() => document.querySelector<HTMLElement>('.more-btn')?.focus())
   }
   // choosing a district any way (map, search, rankings) ends the briefing: they have taken command
   const select = (id: string | null) => {
@@ -276,8 +285,15 @@ export default function App() {
             : null
         }
       />
-      <TopBar world={world} onSelect={select} onGeneral={openGeneral} onHelp={() => setGuide(true)}>
-        <Hud onMission={goMission} onImpact={openImpact} />
+      <TopBar
+        world={world}
+        onSelect={select}
+        onGeneral={openGeneral}
+        onHelp={() => setGuide(true)}
+        onHow={() => setHow(true)}
+        onLeaders={() => openImpact('leaders')}
+        actions={<Hud onImpact={openImpact} />}
+      >
         {/* pin mode clears the map: the readout, key and raid banner would cover the field you need to tap */}
         {!intro && !picking && <RaidBanner world={world} onSelect={select} />}
         {!selected && side === 'readout' && !picking && <MapKey open={keyOpen} onToggle={setKeyOpen} />}
@@ -379,16 +395,7 @@ export default function App() {
           <button onClick={() => setNotice('')}>Got it</button>
         </div>
       )}
-      {results.length > 0 && (
-        <div className="toast" role="status">
-          {results.map((r) => (
-            <p key={r.district}>
-              {r.name}: you called {bandName(r.band)}, it came in at {r.actual} ({bandName(r.actualBand)}). <b>+{r.points} XP</b>
-            </p>
-          ))}
-          <button onClick={() => setResults([])}>Got it</button>
-        </div>
-      )}
+      {results.length > 0 && <ResultToast results={results} onClose={() => setResults([])} />}
       {selected && (
         <Boundary key={selected.id}>
         <DistrictPanel d={selected} world={world} tab={tab} onTab={setTab} focusKey={focusKey} spot={spot} onClose={closeDistrict} onTrace={startTrace} onHighlight={setHighlight} onEarn={() => openImpact('earn')} />

@@ -12,7 +12,7 @@ export function RaidBanner({ world, onSelect }: { world: World; onSelect: (id: s
       <button className="raid-go" onClick={() => onSelect(r.id)}>
         {raidText(r)}
       </button>
-      <button className="raid-x" onClick={() => setHidden(true)} aria-label="Dismiss raid alert">
+      <button className="raid-x" onClick={() => setHidden(true)} aria-label="Dismiss smog alert">
         ×
       </button>
     </div>

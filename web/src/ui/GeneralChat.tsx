@@ -44,7 +44,7 @@ export function GeneralChat({ selected, onHighlight, onClose }: { selected: Dist
     <aside className="rankings general" aria-label="Ask the General">
       <header className="panel-head">
         <div>
-          <h1>Ask the General</h1>
+          <h1>Ask AIRQ AI</h1>
           <p>Live answers from AIRQ's data. Health advice comes from CPCB guidance.</p>
         </div>
         <button className="icon-btn" onClick={onClose} aria-label="Close the General">

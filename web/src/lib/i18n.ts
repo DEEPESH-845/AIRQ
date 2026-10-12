@@ -133,6 +133,34 @@ const EN = {
   'pact.r.forgiven': "Fire forgiven (season strike)",
   'pact.r.fire': "A fire: streak reset",
   'pact.r.small': "Too few fields to count",
+  'tab.today': 'Today', 'tab.why': 'Why', 'tab.tomorrow': 'Tomorrow',
+  'call.h': "Today's call",
+  'call.q': 'This time tomorrow in {name}: better, same or worse?',
+  'call.now': '24-h average AQI now: {aqi}',
+  'call.made': 'You said {dir}. Result after {when}.',
+  'call.other': "Today's call: {name}, {dir}. One call a day.",
+  'call.paused': 'Air data is delayed, so calls are paused.',
+  'call.old': 'This page has old air data. Reload to make today\'s call.',
+  'share.failed': "Couldn't share",
+  'call.record': 'Right {right} of {total} · beat the forecast {beat}×',
+  'call.rule': 'Beat the forecast: +50 XP. Both right: +20.',
+  'dir.better': 'Better', 'dir.same': 'Same', 'dir.worse': 'Worse',
+  'share': 'Share', 'copied': 'Copied', 'gotit': 'Got it',
+  'res.line': '{name}: 24-h AQI {from} → {to}',
+  'res.you': 'You said {dir}', 'res.fc': 'forecast said {dir}',
+  'res.beat': 'You beat the forecast! +{pts} XP',
+  'res.right': 'Right! +{pts} XP',
+  'res.wrong': 'Not this time. Make a new call today.',
+  'res.missed': 'Your {name} call expired. Results keep for a day.',
+  'top.more': 'More', 'top.act': 'Act', 'top.search': 'Find your district',
+  'more.ai': 'Ask AIRQ AI', 'more.manual': 'Field Manual', 'more.how': 'How AIRQ works', 'more.leaders': 'Leaderboard', 'more.lang': 'Language',
+  'intro.title': "How's the air where you live?",
+  'intro.body': "Colours show today's air in every district. Each day, guess if tomorrow gets better or worse, and try to beat the forecast.",
+  'intro.locate': 'Use my location', 'intro.private': 'Stays on your phone', 'intro.search': 'Search',
+  'intro.near': 'Nearest district: {name}', 'intro.open': 'Open {name}', 'intro.look': 'Just look around',
+  'v.go': 'Go out', 'v.care': 'Go, with care', 'v.limit': 'Limit time outside', 'v.in': 'Stay in if you can', 'v.indoors': 'Stay indoors',
+  'readout.pill': '{n} districts Poor or worse',
+  'sheet.more': 'Show more', 'sheet.less': 'Show less',
 }
 export type Key = keyof typeof EN
 export const KEYS = Object.keys(EN) as Key[]
@@ -265,9 +293,37 @@ const HI: Record<Key, string> = {
   'pact.r.forgiven': "आग माफ़ (मौसम की छूट)",
   'pact.r.fire': "आग: सिलसिला टूटा",
   'pact.r.small': "गिनती के लिए बहुत कम खेत",
+  'tab.today': 'आज', 'tab.why': 'क्यों', 'tab.tomorrow': 'कल',
+  'call.h': 'आज का अनुमान',
+  'call.q': 'कल इसी समय {name} की हवा: बेहतर, वैसी ही या बदतर?',
+  'call.now': 'अभी 24 घंटे का औसत AQI: {aqi}',
+  'call.made': 'आपने कहा: {dir}। नतीजा {when} के बाद।',
+  'call.other': 'आज का अनुमान: {name}, {dir}। दिन में एक अनुमान।',
+  'call.paused': 'हवा का डेटा देर से आ रहा है, इसलिए अनुमान अभी बंद हैं।',
+  'call.old': 'इस पेज पर हवा का डेटा पुराना है। आज का अनुमान लगाने के लिए पेज रीलोड करें।',
+  'share.failed': 'शेयर नहीं हो सका',
+  'call.record': '{total} में से {right} सही · पूर्वानुमान को {beat} बार हराया',
+  'call.rule': 'पूर्वानुमान को हराएँ: +50 XP। दोनों सही: +20।',
+  'dir.better': 'बेहतर', 'dir.same': 'वैसी ही', 'dir.worse': 'बदतर',
+  'share': 'शेयर करें', 'copied': 'कॉपी हो गया', 'gotit': 'ठीक है',
+  'res.line': '{name}: 24 घंटे का AQI {from} → {to}',
+  'res.you': 'आपने कहा {dir}', 'res.fc': 'पूर्वानुमान ने कहा {dir}',
+  'res.beat': 'आपने पूर्वानुमान को हरा दिया! +{pts} XP',
+  'res.right': 'सही! +{pts} XP',
+  'res.wrong': 'इस बार नहीं। आज नया अनुमान लगाएँ।',
+  'res.missed': 'आपका {name} अनुमान समाप्त हो गया। नतीजे एक दिन तक रहते हैं।',
+  'top.more': 'और', 'top.act': 'कदम उठाएँ', 'top.search': 'अपना ज़िला खोजें',
+  'more.ai': 'AIRQ AI से पूछें', 'more.manual': 'गाइड', 'more.how': 'AIRQ कैसे काम करता है', 'more.leaders': 'लीडरबोर्ड', 'more.lang': 'भाषा',
+  'intro.title': 'आपके यहाँ की हवा कैसी है?',
+  'intro.body': 'रंग हर ज़िले की आज की हवा दिखाते हैं। हर दिन अनुमान लगाएँ कि कल हवा बेहतर होगी या बदतर, और पूर्वानुमान को हराएँ।',
+  'intro.locate': 'मेरी लोकेशन लें', 'intro.private': 'आपके फ़ोन पर ही रहती है', 'intro.search': 'खोजें',
+  'intro.near': 'सबसे नज़दीकी ज़िला: {name}', 'intro.open': '{name} खोलें', 'intro.look': 'बस नक्शा देखें',
+  'v.go': 'बाहर जाएँ', 'v.care': 'सावधानी से जाएँ', 'v.limit': 'बाहर कम समय बिताएँ', 'v.in': 'हो सके तो घर में रहें', 'v.indoors': 'घर के अंदर रहें',
+  'readout.pill': '{n} ज़िलों में हवा ख़राब या बदतर',
+  'sheet.more': 'और देखें', 'sheet.less': 'कम देखें',
 }
 
-const PA: Record<Key, string> = {
+const PA: Partial<Record<Key, string>> = {
   'earn.verified': 'ਤਸਦੀਕ ਹੋਏ ਕੰਮ',
   'earn.streak': 'ਹਫ਼ਤਿਆਂ ਦੀ ਈਕੋ-ਸਟ੍ਰੀਕ',
   'earn.frontline': 'ਫਰੰਟਲਾਈਨ ਬੋਨਸ',
@@ -426,7 +482,7 @@ const ACTIONS: Record<'hi' | 'pa', Record<string, [string, string, string]>> = {
     carpool: ['ਸਾਂਝੀ ਸਵਾਰੀ ਕਰੋ', 'ਇੱਕ ਕਾਰ, ਕੈਬ ਜਾਂ ਆਟੋ ਵਿੱਚ ਇਕੱਠੇ ਬੈਠੇ ਕਈ ਲੋਕ', 'ਘੱਟ ਗੱਡੀਆਂ, ਘੱਟ ਧੂੰਆਂ ਅਤੇ ਸੜਕ ਦੀ ਘੱਟ ਧੂੜ।'],
   },
 }
-const DICT: Record<Lang, Record<Key, string>> = { en: EN, hi: HI, pa: PA }
+const DICT: Record<Lang, Partial<Record<Key, string>>> = { en: EN, hi: HI, pa: PA }
 
 // ---------- store: the choice persists per browser
 let lang: Lang = (() => {
@@ -467,3 +523,7 @@ export function actionText(a: { id: string; label: string; photo: string; why: s
   const tr = l === 'en' ? undefined : ACTIONS[l][a.id]
   return tr ? { label: tr[0], photo: tr[1], why: tr[2] } : { label: a.label, photo: a.photo, why: a.why }
 }
+
+const VERDICTS: Record<string, Key> = { 'Go out': 'v.go', 'Go, with care': 'v.care', 'Limit time outside': 'v.limit', 'Stay in if you can': 'v.in', 'Stay indoors': 'v.indoors' }
+/** advice-matrix verdicts are English; this maps one to its translation key. */
+export const verdictKey = (v: string): Key | null => VERDICTS[v] ?? null

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { World } from '../lib/world'
 import { istTime } from '../lib/world'
 import { catOf } from '../lib/naqi'
+import { LANGS, setLang, useLang, useT, type Key } from '../lib/i18n'
 
-export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world: World; onSelect: (id: string) => void; onGeneral: () => void; onHelp: () => void; children?: ReactNode }) {
+export function TopBar({ world, onSelect, onGeneral, onHelp, onHow, onLeaders, actions, children }: { world: World; onSelect: (id: string) => void; onGeneral: () => void; onHelp: () => void; onHow: () => void; onLeaders: () => void; actions: ReactNode; children?: ReactNode }) {
+  const t = useT()
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
@@ -47,12 +49,9 @@ export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world
         </small>
       </div>
       <div className="top-actions">
-      <button className="help-btn" onClick={onHelp} aria-label="Field Manual: how to play" title="Field Manual">
-        ?
-      </button>
-      <button className="general-btn" onClick={onGeneral}>
-        Ask the General
-      </button>
+        {actions}
+        <More onGeneral={onGeneral} onHelp={onHelp} onHow={onHow} onLeaders={onLeaders} />
+      </div>
       <div className="search" role="combobox" aria-expanded={matches.length > 0} aria-haspopup="listbox">
         <input
           ref={input}
@@ -68,8 +67,8 @@ export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world
             else if (e.key === 'Enter' && matches[active]) pick(matches[active].id)
             else if (e.key === 'Escape') setQ('')
           }}
-          placeholder="Find your district"
-          aria-label="Find your district"
+          placeholder={t('top.search')}
+          aria-label={t('top.search')}
           aria-controls="search-list"
         />
         {matches.length > 0 && (
@@ -95,8 +94,59 @@ export function TopBar({ world, onSelect, onGeneral, onHelp, children }: { world
           </ul>
         )}
       </div>
-      </div>
       {children}
     </header>
+  )
+}
+
+/** Everything that isn't the daily loop, one tap away. Native <details>; closes on a choice, an outside tap or Escape. */
+function More({ onGeneral, onHelp, onHow, onLeaders }: { onGeneral: () => void; onHelp: () => void; onHow: () => void; onLeaders: () => void }) {
+  const t = useT()
+  const l = useLang()
+  const ref = useRef<HTMLDetailsElement>(null)
+  useEffect(() => {
+    const out = (e: PointerEvent) => {
+      if (ref.current?.open && !ref.current.contains(e.target as Node)) ref.current.open = false
+    }
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !ref.current?.open) return
+      e.stopImmediatePropagation() // this Escape belongs to the menu, not to the district or sheet underneath
+      ref.current.open = false
+      ref.current.querySelector('summary')?.focus()
+    }
+    addEventListener('pointerdown', out)
+    addEventListener('keydown', esc)
+    return () => {
+      removeEventListener('pointerdown', out)
+      removeEventListener('keydown', esc)
+    }
+  }, [])
+  const item = (k: Key, f: () => void) => (
+    <button
+      onClick={() => {
+        if (ref.current) ref.current.open = false
+        f()
+      }}
+    >
+      {t(k)}
+    </button>
+  )
+  return (
+    <details className="more" ref={ref}>
+      <summary className="more-btn">{t('top.more')}</summary>
+      <div className="more-menu">
+        {item('more.ai', onGeneral)}
+        {item('more.leaders', onLeaders)}
+        {item('more.manual', onHelp)}
+        {item('more.how', onHow)}
+        <div className="seg" role="radiogroup" aria-label={t('more.lang')}>
+          {LANGS.map(([id, name]) => (
+            <button key={id} role="radio" aria-checked={l === id} lang={id} onClick={() => setLang(id)}>
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </details>
   )
 }

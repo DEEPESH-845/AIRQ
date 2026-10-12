@@ -1,6 +1,10 @@
 // UX regression checks. Usage: node scripts/ux.mjs  (dev server on BASE or :5173)
 import { chromium } from 'playwright'
 const base = process.env.BASE ?? 'http://localhost:5173'
+const openMore = async (label, p = page) => {
+  await p.click('.more-btn')
+  await p.click(`.more-menu button:has-text("${label}")`)
+}
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
 const fail = (m) => {
   console.error('FAIL:', m)
@@ -50,20 +54,22 @@ if (trace) {
 }
 await page.close()
 
-// the "Tailor today's orders" prompt brings the persona chips into focus
+// the Field Manual's "Show me the daily call" brings the call buttons into focus
 page = await open()
-await page.click('.hud-next')
+await openMore('Field Manual')
+await page.click('.guide-nav button:has-text("Play for XP")')
+await page.click('.guide button:has-text("Show me the daily call")')
 await page.waitForTimeout(600)
-if (!(await page.evaluate(() => !!document.activeElement?.closest('[data-mission="orders"]'))))
-  fail('mission prompt did not move focus to the persona chips')
+if (!(await page.evaluate(() => !!document.activeElement?.closest('[data-mission="call"]'))))
+  fail('"Show me the daily call" did not move focus to the call buttons')
 await page.close()
 
-// opening Ask the General during the briefing ends the briefing (no card over the chat)
+// opening Ask AIRQ AI during the briefing ends the briefing (no card over the chat)
 page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 await page.goto(base + '/', { waitUntil: 'networkidle' })
-await page.click('.general-btn')
+await openMore('Ask AIRQ AI')
 await page.waitForTimeout(300)
-if (await page.$('.intro')) fail('briefing stayed open over Ask the General')
+if (await page.$('.intro')) fail('briefing stayed open over Ask AIRQ AI')
 await page.close()
 
 // closing a district from the UI (here: Replay the briefing) must not leave a dead history entry behind
@@ -73,8 +79,8 @@ await page.keyboard.press('Escape')
 await page.fill('#district-search', world.districts[0].n)
 await page.keyboard.press('Enter')
 await page.waitForSelector('.panel')
-await page.click('.help-btn')
-await page.waitForSelector('.guide') // "?" opens the Field Manual; the briefing replay lives in its footer
+await openMore('Field Manual')
+await page.waitForSelector('.guide') // the briefing replay lives in the Field Manual's footer
 await page.click('.guide-more button:has-text("Replay the briefing")')
 await page.waitForTimeout(500)
 if (await page.evaluate(() => history.state?.airqDistrict === true)) fail('closing via the UI left the district history entry behind')
