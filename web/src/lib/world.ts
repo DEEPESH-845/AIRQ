@@ -20,6 +20,8 @@ export type District = {
   aqi: number
   /** NAQI 24 hours earlier */
   aqiPrev: number
+  /** 24-h AQI 4, 8 ... 24 h before generatedAt (newer worlds only) */
+  past?: number[]
   cat: Cat
   pm25: number
   pm10: number
