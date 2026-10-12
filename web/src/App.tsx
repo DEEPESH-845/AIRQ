@@ -124,7 +124,7 @@ export default function App() {
   const [focusKey, setFocusKey] = useState(0)
   const [how, setHow] = useState(false)
   const [spot, setSpot] = useState<MissionId | null>(null)
-  const [keyOpen, setKeyOpen] = useState(() => innerWidth >= 760)
+  const [keyOpen, setKeyOpen] = useState(() => innerWidth >= 1180)
   // Escape closes the top-most layer only: the sheet, else a running trace, else the district.
   // Never while typing (inputs use Escape to clear themselves). One handler: a second listener
   // in the sheet would be detached by the re-render before it ran.

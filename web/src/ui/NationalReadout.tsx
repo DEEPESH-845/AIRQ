@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import type { World } from '../lib/world'
+import { useT } from '../lib/i18n'
 import { CATS, catIndex } from '../lib/naqi'
 import { frontTrend } from '../lib/story'
 import { CitizenTicker } from './Citizens'
 
 /** Bottom-left instrument: how India's districts split across the NAQI bands, doubling as the legend. */
 export function NationalReadout({ world, onSelect, onRankings, onImpact }: { world: World; onSelect: (id: string) => void; onRankings: () => void; onImpact: () => void }) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
   const counts = CATS.map(() => 0)
   for (const d of world.districts) counts[catIndex(d.aqi)]++
   const total = world.districts.length
@@ -14,7 +18,10 @@ export function NationalReadout({ world, onSelect, onRankings, onImpact }: { wor
   const trend = delta > 0 ? `▲ ${delta} more than yesterday` : delta < 0 ? `▼ ${-delta} fewer than yesterday` : 'Same as yesterday'
 
   return (
-    <section className="readout" aria-label="India right now">
+    <section className="readout" aria-label="India right now" data-open={open}>
+      <button className="readout-pill" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {t('readout.pill', { n: poorPlus })} {open ? '▾' : '▸'}
+      </button>
       <p className="front">
         Smoke Season front line <small data-trend={delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'}>{trend}</small>
       </p>
