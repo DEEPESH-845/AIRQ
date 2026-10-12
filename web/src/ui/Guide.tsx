@@ -41,7 +41,7 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
           <ul>
             <li><b>White streaks</b> are the wind, moving smoke across the country.</li>
             <li><b>Orange dots</b> are fires seen by NASA satellites in the last two days.</li>
-            <li><b>A dashed, breathing border</b> is a smog raid: a district that just turned Very Poor or worse, or will within 24 hours.</li>
+            <li><b>A dashed, breathing border</b> is a smog alert: a district that just turned Very Poor or worse, or will within 24 hours.</li>
             <li>The <b>readout</b> (bottom left) counts districts in each band and tracks the Smoke Season front line against yesterday.</li>
           </ul>
           <p className="fine">Numbers are modelled estimates from Copernicus CAMS, refreshed every 4 hours, not monitor readings.</p>
@@ -50,18 +50,17 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
     },
     {
       id: 'command',
-      title: 'Take command',
+      title: 'Your district',
       done: has('command') && has('orders'),
-      show: [['orders', "Open a district's orders"], ['battle', 'Open the Battle tab']],
+      show: [['orders', "Open your district's Today tab"], ['battle', 'Open the Why tab']],
       body: (
         <>
           <p>Pick a district by tapping it, searching at the top, or from <b>Rankings</b>. Its panel has three tabs:</p>
           <ol className="how-steps">
-            <li><b>Orders</b>: what to do today for children, runners, people with asthma or outdoor workers (CPCB guidance), the cleanest 2-hour window, the 48-hour forecast, and alerts you can switch on: before smog arrives, and when new farm fires flare up within 25 km.</li>
-            <li><b>Battle</b>: where the air comes from (fires, vehicles, dust, industry, household burning), a trace of the smoke's path, and a one-tap complaint to the authority that can act.</li>
-            <li><b>Play</b>: the games below.</li>
+            <li><b>Today</b>: your daily call (better, same or worse tomorrow?), what to do today for children, runners, people with asthma or outdoor workers (CPCB guidance), the cleanest 2-hour window, the 48-hour forecast, and alerts you can switch on: before smog arrives, and when new farm fires flare up within 25 km.</li>
+            <li><b>Why</b>: a short AIRQ AI briefing, where the air comes from (fires, vehicles, dust, industry, household burning), a trace of the smoke's path, and a one-tap complaint to the authority that can act.</li>
+            <li><b>Tomorrow</b>: the clean-air planner and a replay of yesterday's forecast.</li>
           </ol>
-          <p>Missions on the bar at the top walk you through all of it, worth 100 XP.</p>
         </>
       ),
     },
@@ -69,18 +68,18 @@ export default function Guide({ world, onClose, onShow, onHow, onReplayIntro }: 
       id: 'play',
       title: 'Play for XP',
       done: has('defend') && has('call'),
-      show: [['defend', 'Show me Defend'], ['call', 'Show me Call tomorrow'], ['general', 'Ask the General']],
+      show: [['call', 'Show me the daily call'], ['defend', 'Show me the planner'], ['general', 'Ask AIRQ AI']],
       body: (
         <table className="guide-table">
           <thead>
             <tr><th>Game</th><th>How</th><th>XP</th></tr>
           </thead>
           <tbody>
-            <tr><td>Defend</td><td>Spend 4 points a day on real measures (stubble management, road wetting…) and see tomorrow's forecast change.</td><td>30 first time, then 10 a day</td></tr>
-            <tr><td>Call tomorrow</td><td>Guess tomorrow's AQI band. Settles when the data refreshes 24 h later.</td><td>50 if you beat the forecast, 20 if you both get it right</td></tr>
+            <tr><td>Daily call</td><td>Once a day: will tomorrow's 24-h air be better, the same or worse? Beat the forecast for 50, both right 20.</td><td>20–50 a day</td></tr>
+            <tr><td>Clean-air planner</td><td>Spend 4 points a day on real measures (stubble management, road wetting…) and see tomorrow's forecast change.</td><td>30 first time, then 10 a day</td></tr>
             <tr><td>Instant Replay</td><td>Yesterday's reading is shown; call what it is now.</td><td>Up to 50, once per district a day</td></tr>
-            <tr><td>Ask the General</td><td>An AI commander answers from live data. 10 questions a day.</td><td>10 once</td></tr>
-            <tr><td>Daily check-in</td><td>Just come back. A streak grows each day in a row.</td><td>5 a day</td></tr>
+            <tr><td>Ask AIRQ AI</td><td>An AI assistant answers from live data. 10 questions a day.</td><td>10 once</td></tr>
+            <tr><td>Daily check-in</td><td>Just come back.</td><td>5 a day</td></tr>
           </tbody>
         </table>
       ),
