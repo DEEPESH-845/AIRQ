@@ -42,6 +42,17 @@ def naqi(pm25, pm10):
     return round(min(500, max(sub_index(pm25, BP['pm25']), sub_index(pm10, BP['pm10']))))
 
 
+def mean24(series, i):
+    """Mean of the 24 hourly values ending at index i, ignoring gaps."""
+    vals = [x for x in series[max(0, i - 23):i + 1] if x is not None]
+    return sum(vals) / len(vals) if vals else 0.0
+
+
+def past_aqi(pm25s, pm10s, now_a):
+    """24-h-mean NAQI at 4, 8, ... 24 h before now: lets the browser score yesterday's call at the right hour."""
+    return [naqi(mean24(pm25s, now_a - h), mean24(pm10s, now_a - h)) for h in (4, 8, 12, 16, 20, 24)]
+
+
 def category(aqi):
     return next(name for top, name in CATS if aqi <= top)
 
@@ -266,10 +277,6 @@ def build():
         pm25s = p['hourly']['pm2_5']
         pm10s = p['hourly']['pm10']
 
-        def mean24(series, i):
-            vals = [x for x in series[max(0, i - 23):i + 1] if x is not None]
-            return sum(vals) / len(vals) if vals else 0.0
-
         fc_idx = [i for i in range(now_a, min(now_a + 49, len(pm25s)))]
         aqi_fc = [naqi(mean24(pm25s, i), mean24(pm10s, i)) for i in fc_idx]
         pm25_now, pm10_now = mean24(pm25s, now_a), mean24(pm10s, now_a)
@@ -328,7 +335,7 @@ def build():
         out.append({
             'id': props['id'], 'n': props['district'].title(), 's': props['state'].title(),
             'c': [round(clon, 3), round(clat, 3)], 'k': kind,
-            'aqi': aqi, 'aqiPrev': aqi_prev, 'cat': category(aqi), 'pm25': round(pm25_now), 'pm10': round(pm10_now),
+            'aqi': aqi, 'aqiPrev': aqi_prev, 'past': past_aqi(pm25s, pm10s, now_a), 'cat': category(aqi), 'pm25': round(pm25_now), 'pm10': round(pm10_now),
             'fc': aqi_fc, 'pm25h': [round(x) if x is not None else None for x in pm25s[now_a:now_a + 49]],
             'att': att, 'conf': 'medium' if biomass > 50 or kind == 'ncr' else 'low',
             'traj': traj, 'clusters': [{'c': [round(c[3] / c[1], 3), round(c[4] / c[1], 3)], 'fires': c[1],

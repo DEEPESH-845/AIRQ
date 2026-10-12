@@ -45,4 +45,11 @@ assert rb['districts']['a'] == [180, 25] and rb['districts']['b'] == [90, None]
 # archive listing: stray or oddly named keys are skipped instead of dropping the whole replay
 k = archive_times(['archive/world-2026092914.json.gz', 'archive/world-latest.json.gz', 'archive/notes.txt'])
 assert list(k) == [t('2026092914')] and k[t('2026092914')] == 'archive/world-2026092914.json.gz'
+# past: 24-h-mean AQI 4..24 h before now, oldest last; past[5] is the same as aqiPrev
+from tick import past_aqi, mean24
+s25 = [float(i) for i in range(100)]; s10 = [0.0] * 100
+p = past_aqi(s25, s10, 72)
+assert len(p) == 6
+assert p[0] == naqi(mean24(s25, 68), mean24(s10, 68)) and p[5] == naqi(mean24(s25, 48), mean24(s10, 48))
+assert p == sorted(p, reverse=True)  # a rising series: older means are lower
 print('ok')
