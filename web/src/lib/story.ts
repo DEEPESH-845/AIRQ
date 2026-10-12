@@ -40,7 +40,7 @@ export function frontTrend(ds: District[]) {
 export function raidText(r: World['raids'][number]) {
   const band = catOf(r.aqi).name
   const dust = r.dust ? ' (dust storm)' : ''
-  return r.kind === 'incoming' ? `Incoming raid: ${r.n}, ${band} air in ${r.etaH} h${dust}` : `Raid now: ${r.n} is breathing ${band} air${dust}`
+  return r.kind === 'incoming' ? `Smog alert: ${r.n}, ${band} air in ${r.etaH} h${dust}` : `Smog now: ${r.n} is breathing ${band} air${dust}`
 }
 
 /** Raid level per district for the map: 2 = raid now (haze and front), 1 = incoming (front only). */

@@ -47,7 +47,7 @@ export function NationalReadout({ world, onSelect, onRankings, onImpact }: { wor
       </div>
       {world.raids.length > 0 && (
         <div className="worst raids-list">{/* .worst styles; .raids-list keeps it visible on mobile */}
-          <span className="worst-label">Raids</span>
+          <span className="worst-label">Smog alerts</span>
           {world.raids.slice(0, 3).map((r) => (
             <button key={r.id} onClick={() => onSelect(r.id)} style={{ ['--c' as string]: CATS[4].color }}>
               {r.n} <b>{r.kind === 'incoming' ? `${r.etaH} h` : 'now'}</b>

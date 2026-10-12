@@ -24,12 +24,13 @@ export function MapKey({ open, onToggle }: { open: boolean; onToggle: (open: boo
         </li>
         <li>
           <span className="mk-front now" aria-hidden="true" />
-          Hazed, marching border: raid now (Very Poor or worse)
+          Hazed, marching border: smog now (Very Poor or worse)
         </li>
         <li>
           <span className="mk-front" aria-hidden="true" />
-          Marching border only: raid expected within 24 h
+          Marching border only: smog expected within 24 h
         </li>
+        <li className="mk-honest">Modelled estimates (Copernicus CAMS), not monitor readings.</li>
       </ul>
     </details>
   )

@@ -131,6 +131,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (document.querySelector('details.more[open]')) return // the More menu closes itself first
       if (how) setHow(false)
       else if (cert) closeCert()
       else if (picking) cancelPick()
@@ -157,7 +158,7 @@ export default function App() {
     setFocus(home ? { to: 'india' } : null)
     act(markIntroSeen)
     // give keyboard focus somewhere sensible when the card disappears
-    if (home) requestAnimationFrame(() => document.querySelector<HTMLElement>('.help-btn')?.focus())
+    if (home) requestAnimationFrame(() => document.querySelector<HTMLElement>('.more-btn')?.focus())
   }
   // choosing a district any way (map, search, rankings) ends the briefing: they have taken command
   const select = (id: string | null) => {
@@ -282,8 +283,15 @@ export default function App() {
             : null
         }
       />
-      <TopBar world={world} onSelect={select} onGeneral={openGeneral} onHelp={() => setGuide(true)}>
-        <Hud onMission={goMission} onImpact={openImpact} />
+      <TopBar
+        world={world}
+        onSelect={select}
+        onGeneral={openGeneral}
+        onHelp={() => setGuide(true)}
+        onHow={() => setHow(true)}
+        onLeaders={() => openImpact('leaders')}
+        actions={<Hud onImpact={openImpact} />}
+      >
         {/* pin mode clears the map: the readout, key and raid banner would cover the field you need to tap */}
         {!intro && !picking && <RaidBanner world={world} onSelect={select} />}
         {!selected && side === 'readout' && !picking && <MapKey open={keyOpen} onToggle={setKeyOpen} />}
