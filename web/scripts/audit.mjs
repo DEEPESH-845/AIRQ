@@ -4,6 +4,10 @@
 import { chromium } from 'playwright'
 const mobile = process.argv.includes('--mobile')
 const base = process.env.BASE ?? 'http://localhost:5173'
+const openMore = async (label, p = page) => {
+  await p.click('.more-btn')
+  await p.click(`.more-menu button:has-text("${label}")`)
+}
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] })
 const ctx = await browser.newContext({
   ...(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } }),
@@ -50,7 +54,7 @@ async function layout(screen) {
     for (const el of els) {
       const r = el.getBoundingClientRect()
       const cs = getComputedStyle(el)
-      if (!r.width || !r.height || cs.visibility === 'hidden' || el.closest('[hidden]')) continue
+      if (!r.width || !r.height || cs.visibility === 'hidden' || el.closest('[hidden]') || !el.checkVisibility()) continue // checkVisibility: closed <details> content
       if (el.matches('input[type=file]')) continue
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.tagName).trim().replace(/\s+/g, ' ').slice(0, 40)
       // only judge elements inside the viewport vertically (scroll containers hide the rest on purpose)
@@ -100,21 +104,14 @@ await page.goto(base, { waitUntil: 'networkidle' })
 await wait(2500)
 await step('intro shows on first visit', () => page.waitForSelector('.intro', { timeout: 5000 }))
 await layout('intro 1')
-await step('intro next', async () => {
-  await page.click('.intro .primary')
-  await wait(1800)
-  await layout('intro 2')
-  await page.click('.intro .primary')
-  await wait(800)
-})
-await shot('intro3')
+await shot('intro')
 await step('intro use my location', async () => {
-  await page.click('.intro-actions button:has-text("Use my location")')
-  await page.waitForSelector('.intro-actions span b', { timeout: 8000 })
-  const near = await page.textContent('.intro-actions span b')
-  if (!near) bad('nearest district empty')
+  await page.click('.intro .primary') // Use my location
+  await page.waitForSelector('.intro-actions span', { timeout: 8000 })
+  const near = await page.textContent('.intro-actions span')
+  if (!/:\s*\S/.test(near ?? '')) bad('nearest district empty')
 })
-await step('intro take command', async () => {
+await step('intro open nearest district', async () => {
   await page.click('.intro-actions .primary')
   await page.waitForSelector('.panel', { timeout: 8000 })
   if (await page.isVisible('.intro')) bad('intro still visible after taking command')
@@ -131,11 +128,13 @@ await step('persona radios', async () => {
   }
 })
 await step('briefing show on map', async () => {
+  await page.click('[role=tab]:has-text("Why")') // the AI briefing lives on Why
+  await page.waitForSelector('.briefing .linkish', { timeout: 30000 }).catch(() => {})
   const b = await page.$('.briefing .linkish')
   if (b) await b.click()
 })
 await step('battle tab', async () => {
-  await page.click('[role=tab]:has-text("Battle")')
+  await page.click('[role=tab]:has-text("Why")')
   await wait(400)
   await layout('battle')
   await shot('battle')
@@ -167,7 +166,7 @@ await step('citizens block', async () => {
   await page.waitForSelector('.citizens', { timeout: 3000 })
 })
 await step('play tab', async () => {
-  await page.click('[role=tab]:has-text("Play")')
+  await page.click('[role=tab]:has-text("Tomorrow")')
   await wait(400)
   await layout('play')
   await shot('play')
@@ -190,17 +189,18 @@ await step('defend toggles and budget', async () => {
   if ((await defs[0].getAttribute('aria-pressed')) !== 'false') bad('defense did not toggle off')
   await layout('defend')
 })
-await step('duel call', async () => {
-  const b = await page.$('[data-mission="call"] button')
+await step('daily call', async () => {
+  const b = await page.$('[data-mission="call"] button >> nth=2') // Worse; absent if today's call is already made
   if (b) {
     await b.click()
-    await page.waitForSelector('#duel-h ~ .lede b', { timeout: 3000 })
+    await page.waitForSelector('.call-card .lede .linkish', { timeout: 3000 }) // Share appears once called
   }
+  await layout('call made')
 })
 await step('panel keyboard tabs', async () => {
   await page.focus('[role=tab][aria-selected=true]')
   await page.keyboard.press('ArrowLeft')
-  if ((await page.textContent('[role=tab][aria-selected=true]')) !== 'Battle') bad('ArrowLeft from Play')
+  if ((await page.textContent('[role=tab][aria-selected=true]')) !== 'Why') bad('ArrowLeft from Tomorrow')
 })
 await step('back button closes district', async () => {
   await page.goBack()
@@ -252,6 +252,7 @@ await step('readout worst chip', async () => {
   await wait(500)
 })
 await step('rankings', async () => {
+  if (await page.isVisible('.readout-pill')) await page.click('.readout-pill') // phones: the national card opens from its pill
   await page.click('.to-rankings')
   await page.waitForSelector('.rankings', { timeout: 3000 })
   await layout('rankings')
@@ -274,7 +275,7 @@ await step('rankings', async () => {
 // ---------------- the General
 await reset()
 await step('general chat', async () => {
-  await page.click('.general-btn')
+  await openMore('Ask AIRQ AI')
   await page.waitForSelector('.general', { timeout: 3000 })
   await layout('general')
   await page.click('.suggest button >> nth=0')
@@ -287,7 +288,7 @@ await step('general chat', async () => {
 // ---------------- Field Manual: every chapter, every Show me
 await reset()
 await step('field manual chapters', async () => {
-  await page.click('.help-btn')
+  await openMore('Field Manual')
   await page.waitForSelector('.guide', { timeout: 4000 })
   const n = (await page.$$('.guide-nav button')).length
   for (let i = 0; i < n; i++) {
@@ -302,7 +303,7 @@ await step('field manual chapters', async () => {
 })
 await reset()
 const shows = await (async () => {
-  await page.click('.help-btn')
+  await openMore('Field Manual')
   await page.waitForSelector('.guide')
   const list = []
   const n = (await page.$$('.guide-nav button')).length
@@ -315,7 +316,7 @@ const shows = await (async () => {
 })().catch((e) => (bad(`collect show-me buttons: ${String(e.message).split('\n')[0]}`), []))
 for (const [i, label] of shows) {
   await step(`show me "${label}"`, async () => {
-    await page.click('.help-btn')
+    await openMore('Field Manual')
     await page.waitForSelector('.guide')
     await page.click(`.guide-nav button >> nth=${i}`)
     await page.click(`.guide-show button:has-text("${label.replace(' →', '')}")`)
@@ -329,14 +330,14 @@ for (const [i, label] of shows) {
   })
 }
 await step('how it works + replay briefing', async () => {
-  await page.click('.help-btn')
+  await openMore('Field Manual')
   await page.click('.guide-more button:has-text("How AIRQ works")')
   await page.waitForSelector('aside.how', { timeout: 4000 })
   await layout('how it works')
   await page.click('.gloss summary >> nth=0')
   await page.click('.how-replay')
   await page.waitForSelector('.intro', { timeout: 4000 })
-  await page.click('.intro-actions button:has-text("Skip")')
+  await page.click('.intro-actions button:has-text("Just look around")')
   await wait(800)
 })
 
@@ -345,7 +346,7 @@ await reset()
 await step('guest leaderboard', async () => {
   const funded = process.env.AUDIT_PID
   if (funded) return
-  await page.click('.hud-chip:has-text("Leaderboard"), .hud-chip[aria-label="Leaderboard"]')
+  await openMore('Leaderboard')
   await page.waitForSelector('.leaders', { timeout: 4000 })
   await wait(1200)
   await layout('leaderboard guest')

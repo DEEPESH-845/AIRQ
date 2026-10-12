@@ -9,17 +9,21 @@ const errors = []
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 const base = process.env.BASE ?? 'http://localhost:5173'
+const openMore = async (label, p = page) => {
+  await p.click('.more-btn')
+  await p.click(`.more-menu button:has-text("${label}")`)
+}
 const shot = (n) => page.screenshot({ path: `/tmp/airq-shots/impact-${n}${mobile ? '-m' : ''}.png` })
 const fail = (m) => { errors.push(m); console.log('FAIL', m) }
 await page.addInitScript(() => localStorage.setItem('airq.player', JSON.stringify({ introSeen: true, xp: 120, missions: ['command', 'orders', 'trace', 'defend', 'call', 'general'] })))
 await page.goto(base, { waitUntil: 'networkidle' })
 await page.waitForTimeout(2500)
-// HUD: missions done, so it points to the next real-world step
-const next = await page.textContent('.hud-next')
-if (!/Enlist and earn credits/.test(next ?? '')) fail(`hud next: ${next}`)
+// top bar: before enlisting, the Act chip is the way in to earning credits
+const act = await page.textContent('.hud-chip')
+if (!/Act/.test(act ?? '')) fail(`act chip: ${act}`)
 await shot('hud')
-// Field Manual from "?"
-await page.click('.help-btn')
+// Field Manual from More
+await openMore('Field Manual')
 await page.waitForSelector('.guide')
 await shot('guide')
 await page.click('.guide-nav button:has-text("Maximise")')
