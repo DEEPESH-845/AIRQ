@@ -347,9 +347,6 @@ button { font: inherit; color: inherit; }
 .intro h2 { margin: 0 0 6px; font: 800 30px/1 var(--display); }
 .intro p { margin: 0 0 12px; color: var(--haze); line-height: 1.4; }
 .intro .att-bar { margin-bottom: 12px; }
-.intro-steps { display: flex; gap: 6px; margin-bottom: 10px; }
-.intro-steps i { width: 24px; height: 4px; border-radius: 2px; background: var(--line); }
-.intro-steps i[data-on='true'] { background: var(--ember); }
 .intro-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
 .intro-actions span { margin-right: auto; font-size: 14px; }
 .intro-actions button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font-size: 14px; }
@@ -746,3 +743,6 @@ button { font: inherit; color: inherit; }
 .hud { position: static; display: flex; align-items: center; gap: 8px; }
 .hud .xp-toast { position: absolute; top: 100%; right: var(--gutter); margin: 0; pointer-events: none; }
 .hud-chip { min-height: 42px; }
+
+.intro-actions .primary small { display: block; font-weight: 400; font-size: 11px; opacity: 0.75; }
+.intro-actions button { min-height: 44px; }

@@ -1,31 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { District, World } from '../lib/world'
 import type { Focus } from '../map/AirqMap'
-import { defaultDistrict, nearIndia, nearestDistrict, pickStory, poorPlus } from '../lib/story'
-import { SOURCES } from '../lib/sources'
-import { useFeed } from '../lib/account'
+import { nearIndia, nearestDistrict } from '../lib/story'
+import { useT } from '../lib/i18n'
 
 type Scene = { focus: Focus; trace: District | null }
 
-/** First-visit briefing: three cards over the live map. Non-blocking, skippable, replayable from "?". */
+/** First visit: one card over the live map that says what AIRQ is and gets you to your district. Skippable, replayable from More. */
 export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: World; onScene: (s: Scene) => void; onPick: (id: string) => void; onSearch: () => void; onDone: () => void }) {
-  const [step, setStep] = useState(0)
+  const t = useT()
   const [near, setNear] = useState<District | null>(null)
   const [locating, setLocating] = useState(false)
   const card = useRef<HTMLElement>(null)
-  const story = useMemo(() => pickStory(world), [world])
-  const n = poorPlus(world.districts)
-  const top = SOURCES.map((s) => ({ ...s, v: story.d.att[s.key] })).sort((a, b) => b.v - a.v)
-  const target = defaultDistrict(world)
-  const feed = useFeed()
-  const fieldDays = feed?.byAction.fieldwatch ?? 0
-  const actions = (feed?.total ?? 0) - fieldDays - (feed?.byAction.pact ?? 0) - (feed?.byAction.pactweek ?? 0)
 
-  useEffect(() => {
-    if (step === 1) onScene(story.kind === 'fire' ? { focus: null, trace: story.d } : { focus: { to: story.d.c }, trace: null })
-    else onScene({ focus: { to: 'india', brief: true }, trace: null })
-  }, [step, story, onScene])
-  useEffect(() => card.current?.focus(), []) // once: the step text is aria-live, so later steps are announced
+  useEffect(() => onScene({ focus: { to: 'india', brief: true }, trace: null }), [onScene])
+  useEffect(() => card.current?.focus(), [])
 
   useEffect(() => {
     // Escape skips the briefing, except while typing (the search box uses Escape to clear itself)
@@ -41,6 +30,7 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
     alive.current = true // StrictMode mounts twice: set on every mount, not only at creation
     return () => void (alive.current = false)
   }, [])
+  // the position is matched to a district here in the browser; it is never sent anywhere
   const locate = () => {
     if (!('geolocation' in navigator)) return onSearch()
     setLocating(true)
@@ -61,76 +51,25 @@ export function Intro({ world, onScene, onPick, onSearch, onDone }: { world: Wor
     )
   }
 
-  const cards = [
-    {
-      title: "India's air, right now.",
-      body: n
-        ? `${n} of ${world.districts.length} districts are breathing Poor air or worse. Colours show each district's air today.`
-        : "India's air is mostly clean today. Here's where it's worst.",
-    },
-    story.kind === 'fire'
-      ? { title: 'Air travels.', body: `Air reaching ${story.d.n} in the last 36 hours came from here: the line is its path, the rings are fires on the way.` }
-      : { title: 'Every district has its own mix.', body: `${story.d.n} today: mostly ${top[0].label.toLowerCase()} (${Math.round(top[0].v * 100)}%).` },
-    { title: 'Take command.', body: "Pick a district to defend. You'll get today's orders, where its air comes from, and ways to play." },
-  ]
-  const c = cards[step]
-
   return (
-    <section className="intro" aria-label="Briefing" tabIndex={-1} ref={card}>
-      <div className="intro-steps" aria-hidden="true">
-        {cards.map((_, i) => (
-          <i key={i} data-on={i <= step} />
-        ))}
-      </div>
-      <h2>{c.title}</h2>
-      <p aria-live="polite">{c.body}</p>
-      {step === 0 && feed && feed.total > 0 && (
-        <p className="intro-impact">
-          This week, AIRQ players verified{' '}
-          {actions > 0 && (
-            <>
-              <b>{actions}</b> green action{actions === 1 ? '' : 's'}
-            </>
-          )}
-          {actions > 0 && fieldDays > 0 && ' and '}
-          {fieldDays > 0 && (
-            <>
-              <b>{fieldDays}</b> fire-free field day{fieldDays === 1 ? '' : 's'} from space
-            </>
-          )}
-          .
-        </p>
-      )}
-      {step === 1 && story.kind === 'mix' && (
-        <div className="att-bar" role="img" aria-label={top.map((r) => `${r.label} ${Math.round(r.v * 100)}%`).join(', ')}>
-          {top.map((r) => (
-            <span key={r.key} style={{ flexGrow: r.v, background: r.color }} />
-          ))}
-        </div>
-      )}
-      {step < 2 ? (
+    <section className="intro" aria-label={t('intro.title')} tabIndex={-1} ref={card}>
+      <h2>{t('intro.title')}</h2>
+      <p>{t('intro.body')}</p>
+      {near ? (
         <div className="intro-actions">
-          <button onClick={onDone}>Skip</button>
-          <button className="primary" onClick={() => setStep(step + 1)}>
-            Next
-          </button>
-        </div>
-      ) : near ? (
-        <div className="intro-actions">
-          <span>Nearest district: <b>{near.n}</b></span>
-          <button onClick={onSearch}>Not yours? Search</button>
+          <span>{t('intro.near', { name: near.n })}</span>
+          <button onClick={onSearch}>{t('intro.search')}</button>
           <button className="primary" onClick={() => onPick(near.id)}>
-            Take command
+            {t('intro.open', { name: near.n })}
           </button>
         </div>
       ) : (
         <div className="intro-actions">
-          <button onClick={locate} disabled={locating}>
-            {locating ? 'Finding you…' : 'Use my location'}
-          </button>
-          <button onClick={onSearch}>Search</button>
-          <button className="primary" onClick={() => onPick(target.id)}>
-            Take {target.n}
+          <button onClick={onDone}>{t('intro.look')}</button>
+          <button onClick={onSearch}>{t('intro.search')}</button>
+          <button className="primary" onClick={locate} disabled={locating}>
+            {t('intro.locate')}
+            <small>{t('intro.private')}</small>
           </button>
         </div>
       )}
