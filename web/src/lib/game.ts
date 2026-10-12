@@ -1,6 +1,4 @@
 import type { Attribution, District } from './world'
-import { CATS, catIndex } from './naqi'
-import { scoreCall } from './replay'
 
 // PM2.5 <-> NAQI sub-index (CPCB 2014), used to apply source cuts in concentration space.
 const PM = [
@@ -57,49 +55,3 @@ export function planFactor(att: Attribution, active: string[], hour: number) {
 export function planSeries(d: District, active: string[]) {
   return d.fc.map((a, h) => pm25ToAqi(aqiToPm25(a) * planFactor(d.att, active, h)))
 }
-
-// ---------- Forecast Duel: call tomorrow's band, the AI calls it too, reality settles it
-export type Call = { district: string; name: string; band: number; ai: number; resolveAt: string; placed: string }
-const KEY = 'airq.calls'
-const load = (): Call[] => {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]')
-  } catch {
-    return []
-  }
-}
-const save = (c: Call[]) => {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(c))
-  } catch {
-    /* no storage: the call lives for this visit only */
-  }
-}
-export const openCall = (district: string) => load().find((c) => c.district === district)
-export function placeCall(d: District, band: number, generatedAt: string) {
-  const resolveAt = new Date(new Date(generatedAt).getTime() + 24 * 3600e3).toISOString()
-  const calls = load().filter((c) => c.district !== d.id)
-  const call = { district: d.id, name: d.n, band, ai: catIndex(d.fc[24] ?? d.aqi), resolveAt, placed: generatedAt }
-  save([...calls, call])
-  return call
-}
-
-export type Result = Call & { actual: number; actualBand: number; points: number }
-/** Settle every call whose time has come, given the latest world. */
-export function settle(districts: District[], generatedAt: string): Result[] {
-  const now = new Date(generatedAt).getTime()
-  const done: Result[] = []
-  const left = load().filter((c) => {
-    if (new Date(c.resolveAt).getTime() > now) return true
-    const d = districts.find((x) => x.id === c.district)
-    if (d) {
-      const actualBand = catIndex(d.aqi)
-      const points = scoreCall(c.band, c.ai, actualBand)
-      done.push({ ...c, actual: d.aqi, actualBand, points })
-    }
-    return false
-  })
-  save(left)
-  return done
-}
-export const bandName = (i: number) => CATS[i].name

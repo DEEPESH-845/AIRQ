@@ -5,7 +5,6 @@ import { PERSONAS, adviceFor, loadPersona, savePersona, type Persona } from '../
 import { ForecastChart } from './ForecastChart'
 import { Attribution } from './Attribution'
 import { Defend } from './Defend'
-import { Duel } from './Duel'
 import { AlertToggle } from './AlertToggle'
 import { Briefing } from './Briefing'
 import { ReportSource } from './ReportSource'
@@ -195,7 +194,6 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
           <>
             <Replay world={world} d={d} />
             <Defend d={d} start={generatedAt} />
-            <Duel d={d} generatedAt={generatedAt} />
           </>
         )}
       </div>

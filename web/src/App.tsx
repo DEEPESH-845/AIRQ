@@ -20,7 +20,8 @@ import { DistrictPanel } from './ui/DistrictPanel'
 import { Rankings } from './ui/Rankings'
 import { GeneralChat } from './ui/GeneralChat'
 import { Boundary } from './ui/Boundary'
-import { settle, bandName, type Result } from './lib/game'
+import { settleDaily, type Result } from './lib/daily'
+import { ResultToast } from './ui/CallCard'
 import { Hud } from './ui/Hud'
 import { MISSIONS, act, addPoints, checkIn, completeMission, getPlayer, markIntroSeen, shouldShowIntro, usePlayer, type MissionId, type Tab } from './lib/player'
 import { defaultDistrict, nearestDistrict } from './lib/story'
@@ -36,9 +37,9 @@ export default function App() {
     loadWorld().then((w) => {
       setWorld(w)
       setSelectedId((cur) => (cur && w.districts.some((d) => d.id === cur) ? cur : null)) // drop a stale ?d=
-      const r = settle(w.districts, w.generatedAt)
-      setResults(r) // the results toast shows the XP; award in the same step so a closed tab can't lose it
-      act((p) => addPoints(p, r.reduce((a, x) => a + x.points, 0), 'Forecast Duel results'))
+      const r = settleDaily(w)
+      setResults(r) // award in the same step so a closed tab can't lose it
+      act((p) => addPoints(p, r.reduce((a, x) => a + (x.expired ? 0 : x.points), 0), 'Daily call'))
     }, (e) => setError(String(e.message ?? e)))
   }, [])
 
@@ -379,16 +380,7 @@ export default function App() {
           <button onClick={() => setNotice('')}>Got it</button>
         </div>
       )}
-      {results.length > 0 && (
-        <div className="toast" role="status">
-          {results.map((r) => (
-            <p key={r.district}>
-              {r.name}: you called {bandName(r.band)}, it came in at {r.actual} ({bandName(r.actualBand)}). <b>+{r.points} XP</b>
-            </p>
-          ))}
-          <button onClick={() => setResults([])}>Got it</button>
-        </div>
-      )}
+      {results.length > 0 && <ResultToast results={results} onClose={() => setResults([])} />}
       {selected && (
         <Boundary key={selected.id}>
         <DistrictPanel d={selected} world={world} tab={tab} onTab={setTab} focusKey={focusKey} spot={spot} onClose={closeDistrict} onTrace={startTrace} onHighlight={setHighlight} onEarn={() => openImpact('earn')} />

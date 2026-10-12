@@ -744,3 +744,13 @@ button { font: inherit; color: inherit; }
 
 .cam-err { position: absolute; left: 12px; right: 12px; bottom: 96px; margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(20, 18, 43, 0.9); color: #f2d13a; font-size: 13px; text-align: center; }
 .proof-strip li.fine { width: auto; margin: 0; }
+
+/* ---------- daily call */
+.call-card { margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ember) 45%, var(--line)); background: rgba(255, 122, 26, 0.06); }
+.call-card h2 { margin: 0 0 4px; font: 700 13px/1.2 var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ember); }
+.call-card .lede { margin: 0 0 8px; }
+.call-card .lede small { display: block; color: var(--haze); font-size: 12px; margin-top: 2px; }
+.call-card .duel-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.call-card .duel-opts button { min-height: 44px; }
+.call-rule, .call-record { display: block; margin-top: 6px; color: var(--haze); font-size: 12px; }
+.toast-actions { display: flex; align-items: center; gap: 8px; }
