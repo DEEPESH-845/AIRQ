@@ -36,7 +36,11 @@ export default function App() {
   useEffect(() => {
     loadWorld().then((w) => {
       setWorld(w)
-      setSelectedId((cur) => (cur && w.districts.some((d) => d.id === cur) ? cur : null)) // drop a stale ?d=
+      let home: string | null = null
+      try { home = localStorage.getItem('airq.home') } catch { /* no storage */ }
+      const valid = (id: string | null) => !!id && w.districts.some((d) => d.id === id)
+      // a deep link wins (a stale ?d= is dropped); otherwise a returning player lands on their own district
+      setSelectedId((cur) => (valid(cur) ? cur : getPlayer().introSeen && valid(home) ? home : null))
       const r = settleDaily(w)
       setResults(r) // award in the same step so a closed tab can't lose it
       act((p) => addPoints(p, r.reduce((a, x) => a + (x.expired ? 0 : x.points), 0), 'Daily call'))
@@ -75,6 +79,7 @@ export default function App() {
 
   useEffect(() => {
     if (selectedId) act((p) => completeMission(p, 'command'))
+    if (selectedId) try { localStorage.setItem('airq.home', selectedId) } catch { /* no storage */ }
   }, [selectedId])
 
 

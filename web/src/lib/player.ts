@@ -5,13 +5,13 @@ export type MissionId = 'command' | 'orders' | 'trace' | 'defend' | 'call' | 'ge
 export type Tab = 'orders' | 'battle' | 'play'
 
 export const MISSIONS: { id: MissionId; label: string; xp: number; tab: Tab | null; optional?: true }[] = [
-  { id: 'command', label: 'Take command of a district', xp: 10, tab: null },
-  { id: 'orders', label: "Tailor today's orders", xp: 10, tab: 'orders' },
-  { id: 'trace', label: 'Trace the air', xp: 20, tab: 'battle' },
-  { id: 'defend', label: 'Deploy defenses', xp: 30, tab: 'play' },
-  { id: 'call', label: 'Call tomorrow', xp: 20, tab: 'play' },
-  { id: 'general', label: 'Ask the General', xp: 10, tab: null },
-  { id: 'alert', label: 'Set a raid alert', xp: 20, tab: 'orders', optional: true },
+  { id: 'command', label: 'Opened a district', xp: 10, tab: null },
+  { id: 'orders', label: 'Chose who the advice is for', xp: 10, tab: 'orders' },
+  { id: 'trace', label: 'Traced the smoke', xp: 20, tab: 'battle' },
+  { id: 'defend', label: 'Tried the clean-air planner', xp: 30, tab: 'play' },
+  { id: 'call', label: 'Made a daily call', xp: 20, tab: 'orders' },
+  { id: 'general', label: 'Asked AIRQ AI', xp: 10, tab: null },
+  { id: 'alert', label: 'Turned on smog alerts', xp: 20, tab: 'orders', optional: true },
 ]
 
 export const RANKS = [

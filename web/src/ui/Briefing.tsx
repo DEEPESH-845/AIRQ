@@ -20,7 +20,7 @@ export function Briefing({ district, onHighlight }: { district: string; onHighli
   if (failed) return null
   return (
     <section className="briefing" aria-live="polite" aria-busy={!text}>
-      <span className="briefing-from">Briefing from the General</span>
+      <span className="briefing-from">AIRQ AI briefing</span>
       {text ? (
         <p>{text}</p>
       ) : (

@@ -12,6 +12,8 @@ import { Replay } from './Replay'
 import { CitizensHere } from './Citizens'
 import { raidText } from '../lib/story'
 import { act, completeMission, type MissionId, type Tab } from '../lib/player'
+import { CallCard } from './CallCard'
+import { useT, verdictKey, type Key } from '../lib/i18n'
 
 const fmtHour = (iso: string, addH = 0) =>
   new Date(new Date(iso).getTime() + addH * 3600e3).toLocaleTimeString('en-IN', { hour: 'numeric', timeZone: 'Asia/Kolkata' })
@@ -27,13 +29,14 @@ function lidText(d: District) {
   return `The air mixes well over the next 24 hours, which helps clear pollution.`
 }
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'orders', label: 'Orders' },
-  { id: 'battle', label: 'Battle' },
-  { id: 'play', label: 'Play' },
+const TABS: { id: Tab; label: Key }[] = [
+  { id: 'orders', label: 'tab.today' },
+  { id: 'battle', label: 'tab.why' },
+  { id: 'play', label: 'tab.tomorrow' },
 ]
 
 function Tabs({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+  const t = useT()
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const key = (e: KeyboardEvent, i: number) => {
     const moves: Record<string, number> = { ArrowRight: (i + 1) % 3, ArrowLeft: (i + 2) % 3, Home: 0, End: 2 }
@@ -45,21 +48,21 @@ function Tabs({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
   }
   return (
     <div className="tabs" role="tablist" aria-label="District sections">
-      {TABS.map((t, i) => (
+      {TABS.map((tb, i) => (
         <button
-          key={t.id}
+          key={tb.id}
           ref={(el) => {
             refs.current[i] = el
           }}
           role="tab"
-          id={`tab-${t.id}`}
-          aria-selected={tab === t.id}
-          aria-controls={tab === t.id ? `panel-${t.id}` : undefined}
-          tabIndex={tab === t.id ? 0 : -1}
-          onClick={() => onTab(t.id)}
+          id={`tab-${tb.id}`}
+          aria-selected={tab === tb.id}
+          aria-controls={tab === tb.id ? `panel-${tb.id}` : undefined}
+          tabIndex={tab === tb.id ? 0 : -1}
+          onClick={() => onTab(tb.id)}
           onKeyDown={(e) => key(e, i)}
         >
-          {t.label}
+          {t(tb.label)}
         </button>
       ))}
     </div>
@@ -70,13 +73,16 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
   const generatedAt = world.generatedAt
   const raid = world.raids.find((r) => r.id === d.id)
   const panelRef = useRef<HTMLDivElement>(null)
+  const asideRef = useRef<HTMLElement>(null)
+  const t = useT()
+  const [full, setFull] = useState(false)
   // a mission prompt brings its control into view, focuses it and glows it once
   useEffect(() => {
     if (!focusKey) return
     let glow = 0
     let lit: HTMLElement | null = null
     const t = setTimeout(() => {
-      const el = panelRef.current?.querySelector<HTMLElement>(`[data-mission="${spot}"]`)
+      const el = asideRef.current?.querySelector<HTMLElement>(`[data-mission="${spot}"]`)
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
       ;(el ?? panelRef.current)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
       const target = el ? (el.matches('button') ? el : el.querySelector<HTMLElement>('button')) : panelRef.current
@@ -93,6 +99,7 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
   }, [focusKey]) // eslint-disable-line react-hooks/exhaustive-deps -- run per prompt click
   const cat = catOf(d.aqi)
   const advice = adviceFor(d.aqi)
+  const vk = verdictKey(advice.verdict)
   const [persona, setPersona] = useState<Persona>(loadPersona)
   const pick = (p: Persona) => {
     setPersona(p)
@@ -101,7 +108,8 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
   }
 
   return (
-    <aside className="panel" aria-label={`${d.n} air quality`} style={{ ['--c' as string]: cat.color }}>
+    <aside className="panel" ref={asideRef} data-full={full} aria-label={`${d.n} air quality`} style={{ ['--c' as string]: cat.color }}>
+      <button className="sheet-handle" aria-expanded={full} aria-label={t(full ? 'sheet.less' : 'sheet.more')} onClick={() => setFull(!full)} />
       <header className="panel-head">
         <div>
           <h1>{d.n}</h1>
@@ -122,34 +130,15 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
           {advice.grap && <span className="grap">{advice.grap} applies in Delhi-NCR at this level</span>}
         </div>
       </div>
-      <div
-        className="health"
-        role="meter"
-        aria-label="Air health"
-        aria-valuemin={0}
-        aria-valuemax={CATS.length}
-        aria-valuenow={CATS.length - catIndex(d.aqi)}
-        aria-valuetext={`${CATS.length - catIndex(d.aqi)} of ${CATS.length}, ${d.cat}`}
-      >
-        <span>Air health</span>
-        <span className="health-bar">
-          {CATS.map((c, i) => (
-            <i key={c.name} data-on={i < CATS.length - catIndex(d.aqi)} />
-          ))}
-        </span>
-      </div>
       <p className="order">
-        <b>{advice.verdict}</b> <small>· Modelled, not measured</small>
+        <b>{vk ? t(vk) : advice.verdict}</b> <small>· Modelled, not measured</small>
       </p>
-      <p className="fine">
-        PM2.5 {d.pm25} µg/m³ and PM10 {d.pm10} µg/m³, 24-hour average. Estimated from Copernicus CAMS at {fmtHour(generatedAt)} IST.
-      </p>
+      <CallCard d={d} world={world} />
 
       <Tabs tab={tab} onTab={onTab} />
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={-1} ref={panelRef}>
         {tab === 'orders' && (
           <>
-            <Briefing district={d.id} onHighlight={onHighlight} />
             <section className="block" aria-labelledby="verdict-h">
               <h2 id="verdict-h">What to do today</h2>
               <div className="seg" role="radiogroup" aria-label="Who is this for" data-mission="orders">
@@ -178,6 +167,25 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
               <ForecastChart fc={d.fc} start={generatedAt} />
               <p className="lid">{lidText(d)}</p>
             </section>
+            <div
+              className="health"
+              role="meter"
+              aria-label="Air health"
+              aria-valuemin={0}
+              aria-valuemax={CATS.length}
+              aria-valuenow={CATS.length - catIndex(d.aqi)}
+              aria-valuetext={`${CATS.length - catIndex(d.aqi)} of ${CATS.length}, ${d.cat}`}
+            >
+              <span>Air health</span>
+              <span className="health-bar">
+                {CATS.map((c, i) => (
+                  <i key={c.name} data-on={i < CATS.length - catIndex(d.aqi)} />
+                ))}
+              </span>
+            </div>
+            <p className="fine">
+              PM2.5 {d.pm25} µg/m³ and PM10 {d.pm10} µg/m³, 24-hour average. Estimated from Copernicus CAMS at {fmtHour(generatedAt)} IST.
+            </p>
           </>
         )}
         {tab === 'battle' && (
@@ -185,6 +193,7 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
             {raid && (
               <p className="raid-status">{raidText(raid)}.</p>
             )}
+            <Briefing district={d.id} onHighlight={onHighlight} />
             <Attribution d={d} onTrace={onTrace} />
             <CitizensHere district={d.id} name={d.n} onEarn={onEarn} />
             <ReportSource d={d} />
@@ -192,8 +201,8 @@ export function DistrictPanel({ d, world, tab, onTab, focusKey, spot = null, onC
         )}
         {tab === 'play' && (
           <>
-            <Replay world={world} d={d} />
             <Defend d={d} start={generatedAt} />
+            <Replay world={world} d={d} />
           </>
         )}
       </div>
