@@ -1,6 +1,6 @@
 // Self-check for the daily call. Run: npx tsx src/lib/daily.check.ts
 import assert from 'node:assert/strict'
-import { direction, forecastDir, place, resultText, score, settle, todayCall, valueAt, type Daily, type Done } from './daily'
+import { direction, forecastDir, place, resultText, score, settle, todayCall, tooOld, valueAt, type Daily, type Done } from './daily'
 import type { District, World } from './world'
 
 // direction: more than max(5, 10%) counts as a move
@@ -41,8 +41,11 @@ const w0 = world(at(-24))
 const s1 = place(fresh, dist(), 1, w0, t0)!
 assert.ok(s1 && todayCall(s1, t0)?.dir === 1)
 assert.equal(place(s1, dist(), -1, w0, t0 + 3600e3), null) // same day: refused
-const s2 = place(s1, dist(), 0, w0, t0 + 21.5 * 3600e3) // 08:00 IST 13 Oct, before yesterday's result
+const s2 = place(s1, dist(), 0, world(at(-4)), t0 + 21.5 * 3600e3) // 08:00 IST 13 Oct with the 06:30 data, before yesterday's result
 assert.ok(s2 && s2.calls.length === 2)
+// a tab left open overnight still holds yesterday's world: no call against old numbers
+assert.equal(place(s1, dist(), 0, w0, t0 + 21.5 * 3600e3), null)
+assert.ok(tooOld(w0, t0 + 8.5 * 3600e3) && !tooOld(w0, t0 + 7.5 * 3600e3))
 // stale air data: no new call
 assert.equal(place(fresh, dist(), 1, world(at(-24), dist(), true), t0), null)
 

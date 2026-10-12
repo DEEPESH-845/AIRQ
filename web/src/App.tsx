@@ -40,7 +40,9 @@ export default function App() {
       try { home = localStorage.getItem('airq.home') } catch { /* no storage */ }
       const valid = (id: string | null) => !!id && w.districts.some((d) => d.id === id)
       // a deep link wins (a stale ?d= is dropped); otherwise a returning player lands on their own district
-      setSelectedId((cur) => (valid(cur) ? cur : getPlayer().introSeen && valid(home) ? home : null))
+      // invite, certificate and demo links open their own sheet: don't put the home district on top of it
+      const own = /[?&](cert|team|demo)=/.test(location.search)
+      setSelectedId((cur) => (valid(cur) ? cur : getPlayer().introSeen && !own && valid(home) ? home : null))
       const r = settleDaily(w)
       setResults(r) // award in the same step so a closed tab can't lose it
       act((p) => addPoints(p, r.reduce((a, x) => a + (x.expired ? 0 : x.points), 0), 'Daily call'))

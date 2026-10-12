@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import type { District, World } from '../lib/world'
 import { act, completeMission } from '../lib/player'
-import { aqStale, inviteText, placeDaily, resultText, share, todayCall, useDaily, type Dir, type Done, type Result } from '../lib/daily'
+import { aqStale, tooOld, inviteText, placeDaily, resultText, share, todayCall, useDaily, type Dir, type Done, type Result } from '../lib/daily'
 import { useT, type Key } from '../lib/i18n'
 import { useNow } from '../lib/now'
 
 const DIRS: [Dir, Key][] = [[-1, 'dir.better'], [0, 'dir.same'], [1, 'dir.worse']]
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 const link = (id: string) => `${location.origin}/?d=${id}`
+const noteFor = (r: Awaited<ReturnType<typeof share>>, t: (k: Key) => string) => (r === 'copied' ? t('copied') : r === 'failed' ? t('share.failed') : '')
 
 /** Today's one call, above the panel tabs so it shows whichever tab is open. */
 export function CallCard({ d, world }: { d: District; world: World }) {
   const t = useT()
   const s = useDaily()
-  const mine = todayCall(s, useNow())
+  const now = useNow()
+  const mine = todayCall(s, now)
   const [note, setNote] = useState('')
   const dirT = (x: Dir) => t(DIRS[x + 1][1])
-  const send = async (text: string) => setNote((await share(text)) === 'copied' ? t('copied') : '')
+  const send = async (text: string) => setNote(noteFor(await share(text), t))
 
   return (
     <section className="call-card" aria-labelledby="call-h">
@@ -29,6 +31,8 @@ export function CallCard({ d, world }: { d: District; world: World }) {
           <button className="linkish" onClick={() => send(inviteText(mine, link(mine.district)))}>{t('share')}</button>{' '}
           <span role="status">{note}</span>
         </p>
+      ) : tooOld(world, now) ? (
+        <p className="lede">{t('call.old')}</p>
       ) : (
         <>
           <p className="lede">
@@ -73,7 +77,7 @@ export function ResultToast({ results, onClose }: { results: Result[]; onClose: 
       )}
       <div className="toast-actions">
         {done && (
-          <button onClick={async () => setNote((await share(resultText(done, link(done.district)))) === 'copied' ? t('copied') : '')}>{t('share')}</button>
+          <button onClick={async () => setNote(noteFor(await share(resultText(done, link(done.district))), t))}>{t('share')}</button>
         )}
         <button onClick={onClose}>{t('gotit')}</button>
         <span role="status">{note}</span>

@@ -18,6 +18,8 @@ export function direction(from: number, to: number): Dir {
 }
 export const forecastDir = (d: Pick<District, 'aqi' | 'fc'>): Dir | null => (d.fc?.[24] == null ? null : direction(d.aqi, d.fc[24]))
 export const aqStale = (w: Pick<World, 'sources'>) => w.sources.some((s) => s.stale && /air quality/i.test(s.name))
+/** A tab left open for hours still holds an old world: don't take a call against its numbers (one missed tick is fine). */
+export const tooOld = (w: Pick<World, 'generatedAt'>, now: number) => now - new Date(w.generatedAt).getTime() > 8 * 3600e3
 
 /** The district's 24-h AQI at resolveAt, read from this world: now, or one of the `past` slots within 2 h. */
 export function valueAt(d: Pick<District, 'aqi' | 'past'>, generatedAt: string, resolveAt: string): number | 'wait' | 'expired' {
@@ -33,7 +35,7 @@ export const score = (right: boolean, fcRight: boolean | null) => (!right ? 0 : 
 export const todayCall = (s: Daily, now: number) => s.calls.find((c) => c.day === istDay(now)) ?? null
 
 export function place(s: Daily, d: District, dir: Dir, w: World, now: number): Daily | null {
-  if (aqStale(w) || todayCall(s, now)) return null
+  if (aqStale(w) || tooOld(w, now) || todayCall(s, now)) return null
   const resolveAt = new Date(new Date(w.generatedAt).getTime() + 24 * H).toISOString()
   return { ...s, calls: [...s.calls, { day: istDay(now), district: d.id, name: d.n, dir, fc: forecastDir(d), base: d.aqi, resolveAt }] }
 }
@@ -78,7 +80,13 @@ export async function share(text: string): Promise<'shared' | 'copied' | 'cancel
     await navigator.clipboard.writeText(text)
     return 'copied'
   } catch (e) {
-    return (e as Error).name === 'AbortError' ? 'cancelled' : 'failed'
+    if ((e as Error).name === 'AbortError') return 'cancelled'
+    try {
+      await navigator.clipboard.writeText(text) // the share sheet failed (not cancelled): copy instead
+      return 'copied'
+    } catch {
+      return 'failed'
+    }
   }
 }
 
@@ -115,13 +123,22 @@ const subscribe = (f: () => void) => {
   subs.add(f)
   return () => void subs.delete(f)
 }
+// another tab made or settled a call: drop the cached copy so this tab can't make a second call or settle twice
+if (typeof window !== 'undefined')
+  addEventListener('storage', (e) => {
+    if (e.key !== KEY) return
+    state = null
+    subs.forEach((f) => f())
+  })
 export const useDaily = () => useSyncExternalStore(subscribe, getDaily)
 export function placeDaily(d: District, dir: Dir, w: World) {
+  state = null // re-read storage: another tab may have changed it
   const s = place(getDaily(), d, dir, w, Date.now())
   if (s) set(s)
   return !!s
 }
 export function settleDaily(w: World): Result[] {
+  state = null
   const [s, r] = settle(getDaily(), w)
   if (r.length) set(s)
   return r
